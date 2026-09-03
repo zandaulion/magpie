@@ -212,10 +212,6 @@ input::placeholder, textarea::placeholder { color: var(--ink-3); }
   color: var(--ink-3); text-align: center; line-height: 1.7;
   margin: auto 12px; padding: 20px 0;
 }
-.foot-note {
-  color: var(--ink-3); font-size: .78rem; margin: 8px 0 0;
-  line-height: 1.5; text-align: center;
-}
 
 /* -------------------------------------------------------------- composer */
 
@@ -401,8 +397,17 @@ input::placeholder, textarea::placeholder { color: var(--ink-3); }
 
 /* ---------------------------------------------------------------- sparks */
 
-.spark { margin: 0 4px; color: var(--ink-3); font-size: .86rem; line-height: 1.45; }
-.spark::before { content: "încearcă: "; opacity: .7; }
+/* It was set at the size of a footnote, which is the wrong size for the one
+   line on screen whose whole job is to be read when you have nothing to write.
+   Bigger, and a shade darker, without becoming a thing that demands an answer. */
+.spark {
+  margin: 0 2px;
+  color: var(--ink-2);
+  font-size: 1rem;
+  line-height: 1.5;
+  padding: 2px 0;
+}
+.spark::before { content: "încearcă: "; color: var(--ink-3); }
 
 
 

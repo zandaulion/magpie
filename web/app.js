@@ -491,7 +491,6 @@ function when(iso) {
 function renderScraps({ toBottom = false } = {}) {
   const list = $('scraps');
   $('empty').hidden = state.scraps.length > 0;
-  $('foot-note').hidden = state.scraps.length === 0;
   $('scrap-count').textContent = state.total ? `${state.total}` : '';
   $('more').hidden = state.scraps.length >= state.total;
 
