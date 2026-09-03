@@ -32,6 +32,13 @@ Capture, and three things that need no pile to be worth anything:
 - **Say it** — speak instead of typing. The recording is kept and the
   transcript is a reading of it, so a bad transcription is a wrong label rather
   than a lost thought.
+- **Photographs** get a remark of their own, and a photographed board or page
+  can have its text lifted into the box — offered as a button rather than done
+  automatically, because reading a picture means sending it away.
+
+What leaves the server: a scrap goes to the model when Magpie is asked to say
+something about it, read a photograph or transcribe speech. Nothing else does,
+and the settings screen says so in as many words.
 
 None of this needs a corpus. That is deliberate: an app whose payoff arrives in
 three weeks is an app nobody reaches week two of.

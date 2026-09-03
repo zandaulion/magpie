@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 import { db, nowIso, IMAGE_DIR, AUDIO_DIR } from './db.js';
 import { swVersion } from './serve-sw.js';
-import { echo, collide, transcribe, isConfigured, ModelError } from './gemini.js';
+import { echo, collide, transcribe, look, readImageText, isConfigured, ModelError } from './gemini.js';
 import { charge, refund, BudgetError } from './budget.js';
 import {
   COOKIE_NAME, requireDevice, requireAdmin, setTokenCookie,
@@ -234,7 +234,7 @@ app.post('/api/scraps/:id/echo', requireDevice, asyncRoute(async (req, res) => {
   const scrap = db.prepare('SELECT * FROM scraps WHERE id = ? AND account_id = ?')
     .get(req.params.id, req.device.account_id);
   if (!scrap) return res.status(404).json({ error: 'not_found' });
-  if (!scrap.body) return res.status(400).json({ error: 'nothing_to_read' });
+  if (!scrap.body && !scrap.image_id) return res.status(400).json({ error: 'nothing_to_read' });
 
   const already = db.prepare('SELECT body FROM echoes WHERE scrap_id = ?').get(scrap.id);
   if (already) return res.json({ echo: already.body });
@@ -242,7 +242,18 @@ app.post('/api/scraps/:id/echo', requireDevice, asyncRoute(async (req, res) => {
   charge(req.device.account_id);
   let said;
   try {
-    said = await echo(scrap.body);
+    // A photograph is looked at rather than read: the picture carries the sense
+    // and whatever was typed beside it is context, not the subject.
+    if (scrap.image_id) {
+      const file = path.join(IMAGE_DIR, scrap.image_id);
+      said = await look(
+        fs.readFileSync(file).toString('base64'),
+        scrap.image_id.endsWith('.png') ? 'image/png' : 'image/jpeg',
+        scrap.body
+      );
+    } else {
+      said = await echo(scrap.body);
+    }
   } catch (err) {
     if (err.status === 503 || err.status === 429) refund(req.device.account_id);
     throw err;
@@ -332,6 +343,31 @@ app.post('/api/voice', requireDevice, asyncRoute(async (req, res) => {
   }
 
   res.json({ audioId, text: heard.text });
+}));
+
+/**
+ * The words out of a photograph.
+ *
+ * Same shape as voice: this reads a picture that has not been saved yet and
+ * hands the text back for the box, so it can be looked at before anything is
+ * kept. The picture is not written to disk here -- it is still only attached
+ * to the composer, and it is stored when the scrap is.
+ */
+app.post('/api/photo/read', requireDevice, asyncRoute(async (req, res) => {
+  const image = typeof req.body?.image === 'string' ? req.body.image : null;
+  if (!image || image.length < 100) {
+    return res.status(400).json({ error: 'no_image', message: 'Nicio poză.' });
+  }
+
+  charge(req.device.account_id);
+  let heard;
+  try {
+    heard = await readImageText(image, req.body?.mimeType || 'image/jpeg');
+  } catch (err) {
+    if (err.status === 503 || err.status === 429) refund(req.device.account_id);
+    throw err;
+  }
+  res.json({ text: heard.text });
 }));
 
 app.get('/api/audio/:id', requireDevice, (req, res) => {

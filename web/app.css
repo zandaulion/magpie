@@ -257,6 +257,16 @@ input::placeholder, textarea::placeholder { color: var(--ink-3); }
 
 .shot { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
 .shot img { display: block; width: 100%; max-height: 180px; object-fit: cover; }
+/* Sits on the picture rather than under it, so attaching a photo does not
+   grow the composer by a whole row of buttons. */
+.shot-read {
+  position: absolute; left: 8px; bottom: 8px;
+  background: rgba(0, 0, 0, .62); color: #fff;
+  border-radius: 99px; padding: 7px 14px; font-size: .84rem;
+  backdrop-filter: blur(6px);
+}
+.shot-read:disabled { opacity: .7; }
+
 .shot-drop {
   position: absolute; top: 8px; right: 8px; width: 32px; height: 32px;
   border-radius: 50%; background: rgba(0, 0, 0, .6); color: #fff;

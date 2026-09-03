@@ -165,3 +165,53 @@ it into sentences. If there is no speech at all, return an empty string.` }
 
   return { text: text.replace(/^["'“”]+|["'“”]+$/g, '').trim(), usage, model };
 }
+
+/**
+ * One short thing back, about a photograph.
+ *
+ * Same job as echo(), same voice, different sense. Kept separate rather than
+ * folded in because a picture needs its own instruction: the failure mode is a
+ * model that describes what it sees, and a description of your own photograph
+ * is the least interesting thing anyone could say about it.
+ */
+export async function look(imageBase64, mimeType = 'image/jpeg', body = '') {
+  const said = body.trim()
+    ? `Au scris și asta lângă poză:\n\n${body.trim()}`
+    : 'N-au scris nimic, doar poza.';
+
+  const { text, usage, model } = await call([
+    { inlineData: { mimeType, data: imageBase64 } },
+    { text: `${VOICE}
+
+O poză pe care a aruncat-o înăuntru. Spune un lucru scurt despre ea, sau pune o
+întrebare scurtă.
+
+Nu descrie ce se vede. Știe ce a fotografiat — a fost acolo. Dacă în poză e text
+scris de mână sau pe tablă, nu îl citi cu voce tare înapoi.
+
+${said}` }
+  ], { temperature: 1.0, maxOutputTokens: 400 });
+
+  return { text: text.replace(/^["'“”]+|["'“”]+$/g, '').trim(), usage, model };
+}
+
+/**
+ * The words out of a photograph.
+ *
+ * The same shape as speech: the picture is what was produced and is kept, and
+ * this is only a reading of it, dropped into the box to be looked at before
+ * anything is saved. A whiteboard at the end of a lesson is a thought worth
+ * catching, and retyping it is exactly the friction the app exists to remove.
+ */
+export async function readImageText(imageBase64, mimeType = 'image/jpeg') {
+  const { text, usage, model } = await call([
+    { inlineData: { mimeType, data: imageBase64 } },
+    { text: `Scrie textul care se vede în imagine, în limba în care e scris.
+
+Doar textul: fără rezumat, fără introducere, fără ghilimele în jur, fără să
+descrii imaginea. Păstrează rândurile așa cum sunt. Dacă nu se vede niciun text
+lizibil, returnează un șir gol.` }
+  ], { temperature: 0, maxOutputTokens: 4096 });
+
+  return { text: text.replace(/^["'“”]+|["'“”]+$/g, '').trim(), usage, model };
+}

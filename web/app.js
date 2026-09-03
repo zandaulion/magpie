@@ -107,6 +107,38 @@ $('file').addEventListener('change', async (ev) => {
 
 $('shot-drop').addEventListener('click', clearShot);
 
+/**
+ * Lift the words off a photographed board or page.
+ *
+ * Offered rather than automatic: reading a picture means sending it away, and
+ * that should be something you press, not something that happens to every
+ * photo you attach. The text lands in the box beside the picture, which is
+ * kept either way.
+ */
+$('shot-read').addEventListener('click', async () => {
+  if (!state.shot) return;
+  const btn = $('shot-read');
+  btn.disabled = true;
+  btn.textContent = 'Citesc…';
+  try {
+    const { text } = await api('/api/photo/read', {
+      method: 'POST',
+      body: JSON.stringify({ image: state.shot.base64, mimeType: state.shot.mimeType })
+    });
+    if (!text) { toast('N-am găsit text în poză.'); return; }
+    const box = $('scrap');
+    box.value = box.value.trim() ? `${box.value.trim()}\n${text}` : text;
+    autoGrow();
+    box.focus();
+    tick();
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Citește textul';
+  }
+});
+
 function clearShot() {
   if (state.shot?.objectUrl) URL.revokeObjectURL(state.shot.objectUrl);
   state.shot = null;
@@ -143,7 +175,7 @@ async function keep() {
     $('scrap').focus();
     // Asked for after the scrap is safely kept, so a slow or absent model
     // costs a remark and never a thought.
-    if (scrap.body) askEcho(scrap.id);
+    if (scrap.body || scrap.imageId) askEcho(scrap.id);
     syncCollide();
   } catch (err) {
     toast(err.message);
