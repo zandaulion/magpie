@@ -65,6 +65,30 @@ function dismissScreen(name) {
   history.go(-(screens.length - i));
 }
 
+/**
+ * Let the box go when the app comes back.
+ *
+ * An installed app is resumed far more often than it is loaded, and a resume
+ * is not a reload: the page is exactly as it was left, focus included. Leaving
+ * it after saving a scrap is right at the time -- you are mid-flow -- but it
+ * means the keyboard springs up the next time the app is opened, hours later,
+ * which is the thing that was asked to stop.
+ *
+ * Only when the box is empty. Half a sentence left in there means you were in
+ * the middle of something and coming back to finish it.
+ */
+function releaseBoxOnReturn() {
+  if (document.visibilityState !== 'visible') return;
+  const box = $('scrap');
+  if (document.activeElement !== box) return;
+  if (box.value.trim()) return;
+  box.blur();
+}
+
+document.addEventListener('visibilitychange', releaseBoxOnReturn);
+// Coming back from the back/forward cache does not fire visibilitychange.
+window.addEventListener('pageshow', releaseBoxOnReturn);
+
 window.addEventListener('popstate', () => {
   const depth = history.state?.depth || 0;
   while (screens.length > depth) {
