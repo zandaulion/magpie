@@ -1,5 +1,4 @@
-// The store. One SQLite file, no ORM, no migrations yet -- this is a new
-// database and everything below is the first shape it has ever had.
+// The store. One SQLite file, no ORM.
 //
 // The account, device and invite tables are lifted from Plate unchanged. They
 // are the shape the invite console expects, and being identical is the point:
@@ -15,6 +14,16 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 /** Photographs attached to scraps. Outside the database, like Plate's. */
 export const IMAGE_DIR = path.join(DATA_DIR, 'images');
 fs.mkdirSync(IMAGE_DIR, { recursive: true });
+
+/**
+ * Recordings. Kept, not discarded after transcription.
+ *
+ * The recording is what the person actually produced, so it is the scrap; the
+ * transcript is a reading of it and can be wrong. Throwing the audio away once
+ * text existed would make a bad transcript into a lost thought.
+ */
+export const AUDIO_DIR = path.join(DATA_DIR, 'audio');
+fs.mkdirSync(AUDIO_DIR, { recursive: true });
 
 export const db = new DatabaseSync(path.join(DATA_DIR, 'magpie.db'));
 export const nowIso = () => new Date().toISOString();
@@ -83,6 +92,10 @@ db.exec(`
     device_id   TEXT REFERENCES devices(id) ON DELETE SET NULL,
     body        TEXT NOT NULL DEFAULT '',
     image_id    TEXT,
+    -- A recording, where there is one. The scrap's body then holds the
+    -- transcript, which is Magpie's reading rather than the thing itself --
+    -- so the audio stays and can be played back against it.
+    audio_id    TEXT,
     created_at  TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_scraps_account ON scraps(account_id, created_at DESC);
@@ -154,6 +167,33 @@ db.exec(`
 `);
 
 db.exec(`
+  -- What Magpie said back when a scrap was thrown in.
+  --
+  -- Its own table for the same reason extensions are: the model's words and
+  -- the person's are never stored together. This one is disposable -- it can
+  -- be deleted, and losing it loses nothing.
+  CREATE TABLE IF NOT EXISTS echoes (
+    scrap_id    TEXT PRIMARY KEY REFERENCES scraps(id) ON DELETE CASCADE,
+    body        TEXT NOT NULL,
+    model       TEXT,
+    created_at  TEXT NOT NULL
+  );
+
+  -- A pair of scraps knocked together, and what fell out. Kept so a good one
+  -- can be found again, and so the same pair is not served twice running.
+  CREATE TABLE IF NOT EXISTS collisions (
+    id          TEXT PRIMARY KEY,
+    account_id  TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    a_id        TEXT NOT NULL REFERENCES scraps(id) ON DELETE CASCADE,
+    b_id        TEXT NOT NULL REFERENCES scraps(id) ON DELETE CASCADE,
+    body        TEXT NOT NULL,
+    model       TEXT,
+    created_at  TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_collisions_account ON collisions(account_id, created_at DESC);
+`);
+
+db.exec(`
   -- Calls to the model, per account per day. Same shape as Plate's, because
   -- the exposure is the same: a cost per call whose timing someone else picks.
   CREATE TABLE IF NOT EXISTS ai_usage (
@@ -163,3 +203,23 @@ db.exec(`
     PRIMARY KEY (account_id, day)
   );
 `);
+
+/**
+ * Columns added after the database already existed.
+ *
+ * CREATE TABLE IF NOT EXISTS does nothing to a table that is already there, so
+ * a new column has to be added explicitly. This file used to say there were no
+ * migrations because the database was new; it stopped being new the moment
+ * somebody put a thought in it.
+ */
+function addColumnIfMissing(table, column, decl) {
+  const have = db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === column);
+  if (have) return false;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${decl}`);
+  console.log(`migrated ${table}: added ${column}`);
+  return true;
+}
+
+// A recording, where there is one. The body then holds the transcript, which
+// is a reading of the audio rather than the thing itself.
+addColumnIfMissing('scraps', 'audio_id', 'TEXT');

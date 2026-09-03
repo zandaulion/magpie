@@ -10,8 +10,10 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-import { db, nowIso, IMAGE_DIR } from './db.js';
+import { db, nowIso, IMAGE_DIR, AUDIO_DIR } from './db.js';
 import { swVersion } from './serve-sw.js';
+import { echo, collide, transcribe, isConfigured, ModelError } from './gemini.js';
+import { charge, refund, BudgetError } from './budget.js';
 import {
   COOKIE_NAME, requireDevice, requireAdmin, setTokenCookie,
   createInvite, listInvites, revokeInvite, redeemInvite,
@@ -26,7 +28,7 @@ const WEB_DIR = path.join(__dirname, '../web');
 const app = express();
 app.disable('x-powered-by');
 // Scraps are text, but a photographed whiteboard is not small.
-app.use(express.json({ limit: '12mb' }));
+app.use(express.json({ limit: '25mb' }));
 
 const asyncRoute = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const newId = (prefix) => `${prefix}_${crypto.randomBytes(9).toString('hex')}`;
@@ -48,6 +50,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
     scraps: db.prepare('SELECT COUNT(*) AS n FROM scraps').get().n,
+    modelConfigured: isConfigured(),
     devices: db.prepare('SELECT COUNT(*) AS n FROM devices WHERE revoked = 0').get().n,
     time: nowIso()
   });
@@ -134,8 +137,9 @@ function deviceLabel(value) {
 app.post('/api/scraps', requireDevice, (req, res) => {
   const body = typeof req.body?.body === 'string' ? req.body.body.trim() : '';
   const image = typeof req.body?.image === 'string' ? req.body.image : null;
+  const audioId = typeof req.body?.audioId === 'string' ? req.body.audioId : null;
 
-  if (!body && !image) {
+  if (!body && !image && !audioId) {
     return res.status(400).json({ error: 'empty', message: 'Nothing to keep.' });
   }
 
@@ -149,9 +153,9 @@ app.post('/api/scraps', requireDevice, (req, res) => {
   const id = newId('scrap');
   const now = nowIso();
   db.prepare(`
-    INSERT INTO scraps (id, account_id, device_id, body, image_id, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(id, req.device.account_id, req.device.id, body, imageId, now);
+    INSERT INTO scraps (id, account_id, device_id, body, image_id, audio_id, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(id, req.device.account_id, req.device.id, body, imageId, audioId, now);
 
   res.status(201).json(scrapForApi(db.prepare('SELECT * FROM scraps WHERE id = ?').get(id)));
 });
@@ -185,6 +189,9 @@ app.delete('/api/scraps/:id', requireDevice, (req, res) => {
     // orphaning it on disk.
     try { fs.unlinkSync(path.join(IMAGE_DIR, row.image_id)); } catch {}
   }
+  if (row.audio_id) {
+    try { fs.unlinkSync(path.join(AUDIO_DIR, row.audio_id)); } catch {}
+  }
   res.json({ ok: true });
 });
 
@@ -201,13 +208,143 @@ app.get('/api/images/:id', requireDevice, (req, res) => {
 });
 
 function scrapForApi(row) {
+  const said = db.prepare('SELECT body FROM echoes WHERE scrap_id = ?').get(row.id);
   return {
     id: row.id,
     body: row.body,
     imageId: row.image_id,
-    createdAt: row.created_at
+    audioId: row.audio_id,
+    createdAt: row.created_at,
+    // Magpie's words, kept separate from theirs all the way to the client so
+    // the interface can never render the two as one thing.
+    echo: said?.body || null
   };
 }
+
+// ------------------------------------------------------------ magpie says
+
+/**
+ * One short thing back, on a single scrap.
+ *
+ * Separate from the save on purpose. Saving must never wait on a model or fail
+ * because one was slow -- the scrap is already kept by the time this is asked
+ * for, so a model that is down costs a remark and nothing else.
+ */
+app.post('/api/scraps/:id/echo', requireDevice, asyncRoute(async (req, res) => {
+  const scrap = db.prepare('SELECT * FROM scraps WHERE id = ? AND account_id = ?')
+    .get(req.params.id, req.device.account_id);
+  if (!scrap) return res.status(404).json({ error: 'not_found' });
+  if (!scrap.body) return res.status(400).json({ error: 'nothing_to_read' });
+
+  const already = db.prepare('SELECT body FROM echoes WHERE scrap_id = ?').get(scrap.id);
+  if (already) return res.json({ echo: already.body });
+
+  charge(req.device.account_id);
+  let said;
+  try {
+    said = await echo(scrap.body);
+  } catch (err) {
+    if (err.status === 503 || err.status === 429) refund(req.device.account_id);
+    throw err;
+  }
+
+  db.prepare('INSERT INTO echoes (scrap_id, body, model, created_at) VALUES (?, ?, ?, ?)')
+    .run(scrap.id, said.text, said.model, nowIso());
+  res.json({ echo: said.text });
+}));
+
+/**
+ * Two scraps, knocked together.
+ *
+ * Wants a pair and nothing more, which is why it is here so early: clustering
+ * needs dozens before it can say anything honest, and this needs two.
+ */
+app.post('/api/collide', requireDevice, asyncRoute(async (req, res) => {
+  const pool = db.prepare(`
+    SELECT id, body FROM scraps
+    WHERE account_id = ? AND body != ''
+    ORDER BY RANDOM() LIMIT 2
+  `).all(req.device.account_id);
+
+  if (pool.length < 2) {
+    return res.status(400).json({
+      error: 'need_two',
+      message: 'Throw in one more and Magpie can start knocking them together.'
+    });
+  }
+
+  charge(req.device.account_id);
+  let out;
+  try {
+    out = await collide(pool[0].body, pool[1].body);
+  } catch (err) {
+    if (err.status === 503 || err.status === 429) refund(req.device.account_id);
+    throw err;
+  }
+
+  const id = newId('col');
+  db.prepare(`
+    INSERT INTO collisions (id, account_id, a_id, b_id, body, model, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(id, req.device.account_id, pool[0].id, pool[1].id, out.text, out.model, nowIso());
+
+  res.json({
+    id,
+    body: out.text,
+    a: { id: pool[0].id, body: pool[0].body },
+    b: { id: pool[1].id, body: pool[1].body }
+  });
+}));
+
+// ------------------------------------------------------------------- voice
+
+/**
+ * A recording, and a reading of it.
+ *
+ * The audio is written to disk before the model is asked anything, and stays
+ * there afterwards. It is what the person actually produced; the transcript is
+ * Magpie's reading of it and can be wrong, so throwing the recording away once
+ * text existed would turn a bad transcript into a lost thought.
+ *
+ * Returns the transcript for the capture box rather than saving a scrap
+ * outright -- what is heard should be seen before it is kept.
+ */
+app.post('/api/voice', requireDevice, asyncRoute(async (req, res) => {
+  const audio = typeof req.body?.audio === 'string' ? req.body.audio : null;
+  if (!audio || audio.length < 100) {
+    return res.status(400).json({ error: 'no_audio', message: 'Nothing was recorded.' });
+  }
+
+  const mime = typeof req.body?.mimeType === 'string' ? req.body.mimeType : 'audio/webm';
+  const ext = mime.includes('mp4') ? 'mp4' : mime.includes('ogg') ? 'ogg' : 'webm';
+  const audioId = `${newId('aud')}.${ext}`;
+  fs.writeFileSync(path.join(AUDIO_DIR, audioId), Buffer.from(audio, 'base64'));
+
+  charge(req.device.account_id);
+  let heard;
+  try {
+    heard = await transcribe(audio, mime);
+  } catch (err) {
+    if (err.status === 503 || err.status === 429) refund(req.device.account_id);
+    // The recording is already on disk, so the words are not lost even though
+    // the reading of them failed.
+    return res.status(err.status || 502).json({ error: err.code, message: err.message, audioId });
+  }
+
+  res.json({ audioId, text: heard.text });
+}));
+
+app.get('/api/audio/:id', requireDevice, (req, res) => {
+  const owned = db.prepare('SELECT 1 FROM scraps WHERE audio_id = ? AND account_id = ?')
+    .get(req.params.id, req.device.account_id);
+  if (!owned) return res.status(404).end();
+
+  const file = path.join(AUDIO_DIR, path.basename(req.params.id));
+  if (!fs.existsSync(file)) return res.status(404).end();
+  res.type(file.endsWith('.mp4') ? 'audio/mp4' : file.endsWith('.ogg') ? 'audio/ogg' : 'audio/webm');
+  res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+  fs.createReadStream(file).pipe(res);
+});
 
 // ------------------------------------------------------------------ admin
 
@@ -244,7 +381,7 @@ app.delete('/api/admin/devices/:id', requireAdmin, (req, res) => {
 // ------------------------------------------------------------------ errors
 
 app.use((err, req, res, next) => {
-  if (err instanceof ThrottledError) {
+  if (err instanceof ModelError || err instanceof BudgetError || err instanceof ThrottledError) {
     return res.status(err.status).json({ error: err.code, message: err.message });
   }
   console.error('unhandled', err);

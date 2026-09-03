@@ -6,6 +6,8 @@ const state = {
   scraps: [],
   total: 0,
   shot: null,      // { base64, mimeType, objectUrl }
+  audioId: null,   // set once a recording has been transcribed
+  lastCollision: null,
   me: null
 };
 
@@ -115,17 +117,23 @@ async function keep() {
       body: JSON.stringify({
         body,
         image: state.shot?.base64 || null,
-        mimeType: state.shot?.mimeType || null
+        mimeType: state.shot?.mimeType || null,
+        audioId: state.audioId || null
       })
     });
     // Cleared only once it is actually saved. Losing a thought to a failed
     // request would break the one promise the app makes.
     $('scrap').value = '';
+    state.audioId = null;
     clearShot();
     state.scraps.unshift(scrap);
     state.total += 1;
     renderScraps();
-    toast('Kept');
+    tick();
+    // Asked for after the scrap is safely kept, so a slow or absent model
+    // costs a remark and never a thought.
+    if (scrap.body) askEcho(scrap.id);
+    syncCollide();
   } catch (err) {
     toast(err.message);
   } finally {
@@ -134,6 +142,199 @@ async function keep() {
 }
 
 $('keep').addEventListener('click', keep);
+
+/**
+ * A short haptic on save.
+ *
+ * The point is that offloading should feel like something. Most of the cost of
+ * writing a thought down is the friction before it, and a small physical
+ * acknowledgement is the cheapest way to lower that.
+ */
+function tick() {
+  try { navigator.vibrate?.(12); } catch { /* not supported, no matter */ }
+}
+
+async function askEcho(id) {
+  try {
+    const { echo } = await api(`/api/scraps/${id}/echo`, { method: 'POST' });
+    const scrap = state.scraps.find((s) => s.id === id);
+    if (!scrap || !echo) return;
+    scrap.echo = echo;
+    renderScraps();
+  } catch {
+    // Magpie having nothing to say is not an error worth showing anyone.
+  }
+}
+
+// ----------------------------------------------------------------- voice
+
+/**
+ * Say it instead of typing it.
+ *
+ * The reason this matters more than it looks: by the time you unlock a phone,
+ * find the app and type three words, the thought you were chasing has often
+ * gone. Speaking it costs almost nothing and catches it while it is still
+ * there.
+ *
+ * The recording is kept. What comes back is a transcript dropped into the box
+ * for you to look at before keeping -- Magpie's reading of what you said, not
+ * a replacement for it.
+ */
+let recorder = null;
+let recChunks = [];
+let recStarted = 0;
+let recTimer = null;
+
+async function startTalking() {
+  if (recorder) return;
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    return toast('No microphone available.');
+  }
+
+  // webm/opus everywhere except Safari, which wants mp4.
+  const type = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+    .find((t) => MediaRecorder.isTypeSupported?.(t)) || '';
+  recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+  recChunks = [];
+  recorder.ondataavailable = (ev) => { if (ev.data.size) recChunks.push(ev.data); };
+  recorder.onstop = () => finishTalking(stream, recorder.mimeType || type || 'audio/webm');
+  recorder.start();
+
+  recStarted = Date.now();
+  $('rec-bar').hidden = false;
+  $('hold-talk').disabled = true;
+  tick();
+  recTimer = setInterval(() => {
+    const secs = Math.floor((Date.now() - recStarted) / 1000);
+    $('rec-time').textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+    // Nobody means to leave it running for five minutes.
+    if (secs >= 300) stopTalking();
+  }, 250);
+}
+
+function stopTalking() {
+  if (!recorder || recorder.state === 'inactive') return;
+  recorder.stop();
+}
+
+async function finishTalking(stream, mimeType) {
+  clearInterval(recTimer);
+  stream.getTracks().forEach((t) => t.stop());
+  recorder = null;
+  $('rec-bar').hidden = true;
+  $('rec-time').textContent = '0:00';
+  $('hold-talk').disabled = false;
+
+  const blob = new Blob(recChunks, { type: mimeType });
+  if (blob.size < 1200) return;   // a tap rather than a thought
+
+  toast('Listening back…');
+  try {
+    const reader = new FileReader();
+    const base64 = await new Promise((ok, no) => {
+      reader.onload = () => ok(String(reader.result).split(',')[1]);
+      reader.onerror = () => no(new Error('Could not read the recording.'));
+      reader.readAsDataURL(blob);
+    });
+
+    const heard = await api('/api/voice', {
+      method: 'POST',
+      body: JSON.stringify({ audio: base64, mimeType })
+    });
+    state.audioId = heard.audioId;
+    const box = $('scrap');
+    box.value = box.value ? `${box.value.trim()}\n${heard.text}` : heard.text;
+    box.focus();
+    tick();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+$('hold-talk').addEventListener('click', startTalking);
+$('rec-stop').addEventListener('click', stopTalking);
+
+// --------------------------------------------------------------- collide
+
+/**
+ * Two scraps knocked together.
+ *
+ * Offered from the second scrap onward, which is the point of it: clustering
+ * needs dozens before it can say anything true, and this needs a pair. It is
+ * also the only part of the app that is purely for fun, which on balance is
+ * what makes the pile feel like a toy rather than a filing cabinet.
+ */
+function syncCollide() {
+  $('collide-wrap').hidden = state.total < 2;
+}
+
+async function runCollide() {
+  $('collide-go').disabled = true;
+  $('collide-go').textContent = 'Knocking…';
+  try {
+    const out = await api('/api/collide', { method: 'POST' });
+    $('collide-said').textContent = out.body;
+    $('collide-from').textContent = `${trim(out.a.body)}  ×  ${trim(out.b.body)}`;
+    $('collide-out').hidden = false;
+    state.lastCollision = out.body;
+    tick();
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    $('collide-go').disabled = false;
+    $('collide-go').textContent = 'Knock two together';
+  }
+}
+
+const trim = (t) => (t.length > 38 ? `${t.slice(0, 38)}…` : t);
+
+$('collide-go').addEventListener('click', runCollide);
+$('collide-again').addEventListener('click', runCollide);
+
+// Keeping one makes it a scrap of its own, which is the honest thing: it came
+// out of the machine, and once it is in the pile it is treated like anything
+// else thrown in.
+$('collide-keep').addEventListener('click', async () => {
+  if (!state.lastCollision) return;
+  $('scrap').value = state.lastCollision;
+  $('collide-out').hidden = true;
+  $('scrap').focus();
+});
+
+// ---------------------------------------------------------------- sparks
+
+/**
+ * Something to push against when the box is empty.
+ *
+ * Asked what they are thinking, plenty of people go blank -- the blank box is
+ * its own kind of friction. These are deliberately odd rather than useful, and
+ * they never nag: shown quietly, gone the moment anything is typed.
+ */
+const SPARKS = [
+  'the weirdest thing you noticed today',
+  'something that annoyed you that nobody else seems bothered by',
+  'a thing you would build if it were easy',
+  'an opinion you have not said out loud',
+  'something you keep meaning to look up',
+  'the worst idea you have had this week',
+  'a thing that would be better if it were bigger',
+  'something you noticed about a song',
+  'a question you do not know the answer to',
+  'a thing that should exist and does not'
+];
+
+function showSpark() {
+  if ($('scrap').value.trim()) return ($('spark').hidden = true);
+  $('spark').textContent = SPARKS[Math.floor(Math.random() * SPARKS.length)];
+  $('spark').hidden = false;
+}
+
+$('scrap').addEventListener('input', () => {
+  $('spark').hidden = Boolean($('scrap').value.trim());
+});
 
 // Ctrl/Cmd+Enter keeps it, for anyone typing at a keyboard.
 $('scrap').addEventListener('keydown', (ev) => {
@@ -167,6 +368,8 @@ function renderScraps() {
     <li class="scrap" data-id="${esc(s.id)}">
       ${s.imageId ? `<img src="/api/images/${encodeURIComponent(s.imageId)}" alt="" loading="lazy">` : ''}
       ${s.body ? `<div class="scrap-body">${esc(s.body)}</div>` : ''}
+      ${s.audioId ? `<audio class="scrap-audio" controls preload="none" src="/api/audio/${encodeURIComponent(s.audioId)}"></audio>` : ''}
+      ${s.echo ? `<p class="scrap-echo">${esc(s.echo)}</p>` : ''}
       <div class="scrap-meta">
         <span>${esc(when(s.createdAt))}</span>
         <button class="scrap-del" type="button" data-del="${esc(s.id)}" aria-label="Delete this scrap">&times;</button>
@@ -206,6 +409,8 @@ async function loadScraps() {
   state.scraps = data.scraps;
   state.total = data.total;
   renderScraps();
+  syncCollide();
+  showSpark();
 }
 
 // -------------------------------------------------------------- settings

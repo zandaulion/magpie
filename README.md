@@ -13,6 +13,30 @@ exactly as written, newest first, and can be deleted. That is the whole of it
 so far, and it is deliberately useful on its own: a plain heap you can add to
 and search by eye is better than an empty clever thing.
 
+## What it does now
+
+Capture, and three things that need no pile to be worth anything:
+
+- **Magpie says one thing back** to each scrap — a dry remark, or a question
+  that opens it up. Chosen at random between the two, because a response you
+  can predict stops being worth reading. Asked for *after* the scrap is saved,
+  so a slow or absent model costs a remark and never a thought.
+- **Knock two together** — two scraps at random, and what falls out. Available
+  from the second scrap, which is the point of it: clustering needs dozens
+  before it can say anything true, collision needs a pair.
+- **Say it** — speak instead of typing. The recording is kept and the
+  transcript is a reading of it, so a bad transcription is a wrong label rather
+  than a lost thought.
+
+None of this needs a corpus. That is deliberate: an app whose payoff arrives in
+three weeks is an app nobody reaches week two of.
+
+## What it will not do
+
+No streaks. No reminders asking where you have been. No count that implies a
+target. A missed week should cost nothing, because an app that can make you
+feel behind is one you stop opening.
+
 ## What is not here yet, in order
 
 1. **Embeddings on save** — cheap, and the substrate for everything after.
