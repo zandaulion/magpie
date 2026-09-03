@@ -50,6 +50,10 @@ function toast(message) {
 const screens = [];
 
 function openScreen(name, close) {
+  // Let the keyboard go. The box keeps focus when something opens over it,
+  // and on a phone that means the keyboard stays up covering the screen just
+  // opened.
+  document.activeElement?.blur?.();
   screens.push({ name, close });
   history.pushState({ magpieScreen: name, depth: screens.length }, '');
 }
@@ -60,6 +64,10 @@ function dismissScreen(name) {
   for (let k = i; k < screens.length; k++) screens[k].dismissing = true;
   history.go(-(screens.length - i));
 }
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') focusBox();
+});
 
 window.addEventListener('popstate', () => {
   const depth = history.state?.depth || 0;
@@ -131,6 +139,8 @@ async function keep() {
     renderScraps({ toBottom: true });
     autoGrow();
     tick();
+    // Straight on to the next one without reaching for the field again.
+    $('scrap').focus();
     // Asked for after the scrap is safely kept, so a slow or absent model
     // costs a remark and never a thought.
     if (scrap.body) askEcho(scrap.id);
@@ -335,6 +345,29 @@ function showSpark() {
   $('spark').hidden = false;
 }
 
+/**
+ * Put the cursor in the box the moment there is a box.
+ *
+ * The app is opened to throw something in, so the thing you came to do should
+ * be one keystroke away rather than one tap and then a keystroke.
+ *
+ * On a phone this focuses the field but does not necessarily raise the
+ * keyboard: browsers only open it in response to a real touch, and nothing can
+ * be done about that from script. Focusing is still worth it -- the caret is
+ * already where it needs to be, and tapping anywhere in the field types rather
+ * than aims.
+ *
+ * Refuses when something is on top or there is already text, so returning to
+ * the app in the middle of something never yanks the view around.
+ */
+function focusBox() {
+  if (screens.length) return;
+  if ($('app').hidden) return;
+  const box = $('scrap');
+  if (document.activeElement === box) return;
+  try { box.focus({ preventScroll: true }); } catch { box.focus(); }
+}
+
 function autoGrow() {
   const box = $('scrap');
   box.style.height = 'auto';
@@ -401,8 +434,13 @@ function renderScraps({ toBottom = false } = {}) {
  * arriving for something further down.
  */
 function scrollToBottom(smooth = false) {
-  const stream = $('stream');
-  stream.scrollTo({ top: stream.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  // After a frame, not immediately: the list has just been written into the
+  // DOM and scrollHeight is still the old one until layout runs, so scrolling
+  // now lands short of the bottom by however much was just added.
+  requestAnimationFrame(() => {
+    const stream = $('stream');
+    stream.scrollTo({ top: stream.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  });
 }
 
 $('scraps').addEventListener('click', async (ev) => {
@@ -444,6 +482,7 @@ async function loadScraps() {
   renderScraps({ toBottom: true });
   syncCollide();
   showSpark();
+  focusBox();
 }
 
 // -------------------------------------------------------------- settings
