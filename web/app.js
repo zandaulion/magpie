@@ -128,7 +128,8 @@ async function keep() {
     clearShot();
     state.scraps.unshift(scrap);
     state.total += 1;
-    renderScraps();
+    renderScraps({ toBottom: true });
+    autoGrow();
     tick();
     // Asked for after the scrap is safely kept, so a slow or absent model
     // costs a remark and never a thought.
@@ -247,6 +248,7 @@ async function finishTalking(stream, mimeType) {
     state.audioId = heard.audioId;
     const box = $('scrap');
     box.value = box.value ? `${box.value.trim()}\n${heard.text}` : heard.text;
+    autoGrow();
     box.focus();
     tick();
   } catch (err) {
@@ -301,6 +303,7 @@ $('collide-keep').addEventListener('click', async () => {
   if (!state.lastCollision) return;
   $('scrap').value = state.lastCollision;
   $('collide-out').hidden = true;
+  autoGrow();
   $('scrap').focus();
 });
 
@@ -332,8 +335,15 @@ function showSpark() {
   $('spark').hidden = false;
 }
 
+function autoGrow() {
+  const box = $('scrap');
+  box.style.height = 'auto';
+  box.style.height = `${Math.min(box.scrollHeight, window.innerHeight * 0.4)}px`;
+}
+
 $('scrap').addEventListener('input', () => {
   $('spark').hidden = Boolean($('scrap').value.trim());
+  autoGrow();
 });
 
 // Ctrl/Cmd+Enter keeps it, for anyone typing at a keyboard.
@@ -358,13 +368,17 @@ function when(iso) {
   return then.toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' });
 }
 
-function renderScraps() {
+function renderScraps({ toBottom = false } = {}) {
   const list = $('scraps');
   $('empty').hidden = state.scraps.length > 0;
+  $('foot-note').hidden = state.scraps.length === 0;
   $('scrap-count').textContent = state.total ? `${state.total}` : '';
   $('more').hidden = state.scraps.length >= state.total;
 
-  list.innerHTML = state.scraps.map((s) => `
+  // Held newest-first, shown oldest-first: the newest ends up against the
+  // composer, where the eye already is and where the last thing you threw in
+  // ought to be.
+  list.innerHTML = [...state.scraps].reverse().map((s) => `
     <li class="scrap" data-id="${esc(s.id)}">
       ${s.imageId ? `<img src="/api/images/${encodeURIComponent(s.imageId)}" alt="" loading="lazy">` : ''}
       ${s.body ? `<div class="scrap-body">${esc(s.body)}</div>` : ''}
@@ -375,6 +389,20 @@ function renderScraps() {
         <button class="scrap-del" type="button" data-del="${esc(s.id)}" aria-label="Șterge fragmentul">&times;</button>
       </div>
     </li>`).join('');
+
+  if (toBottom) scrollToBottom();
+}
+
+/**
+ * Down to the newest.
+ *
+ * Called after a save and on first load rather than on every render, so
+ * scrolling back through older scraps is not yanked away by a late echo
+ * arriving for something further down.
+ */
+function scrollToBottom(smooth = false) {
+  const stream = $('stream');
+  stream.scrollTo({ top: stream.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
 }
 
 $('scraps').addEventListener('click', async (ev) => {
@@ -396,9 +424,14 @@ $('more').addEventListener('click', async () => {
   if (!oldest) return;
   try {
     const data = await api(`/api/scraps?before=${encodeURIComponent(oldest.createdAt)}`);
+    const stream = $('stream');
+    const before = stream.scrollHeight;
     state.scraps.push(...data.scraps);
     state.total = data.total;
     renderScraps();
+    // Older ones are inserted above, so without this the page would appear to
+    // jump backwards by exactly the height of what was just added.
+    stream.scrollTop += stream.scrollHeight - before;
   } catch (err) {
     toast(err.message);
   }
@@ -408,7 +441,7 @@ async function loadScraps() {
   const data = await api('/api/scraps');
   state.scraps = data.scraps;
   state.total = data.total;
-  renderScraps();
+  renderScraps({ toBottom: true });
   syncCollide();
   showSpark();
 }

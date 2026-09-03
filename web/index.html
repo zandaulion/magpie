@@ -17,6 +17,7 @@
   <div class="gate-inner">
     <img class="gate-mark" src="/icons/icon.svg" alt="" width="72" height="72">
     <h1>Magpie</h1>
+    <span id="scrap-count" class="count" aria-label="fragmente"></span>
     <p class="lede">Aruncă ce-ți trece prin cap. Magpie se prinde ce iese din ele.</p>
 
     <div class="seg" role="tablist">
@@ -51,6 +52,7 @@
   <header class="top">
     <img class="mark" src="/icons/icon.svg" alt="" width="28" height="28">
     <h1>Magpie</h1>
+    <span id="scrap-count" class="count" aria-label="fragmente"></span>
     <button id="open-settings" class="icon-btn" type="button" aria-label="Setări">
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8">
         <circle cx="12" cy="12" r="3.2"/>
@@ -59,15 +61,43 @@
     </button>
   </header>
 
-  <!-- Capturarea, primul lucru, mereu. Dacă aruncatul e ascuns după meniuri,
-       s-a dus toată ideea. -->
-  <section class="capture">
-    <textarea id="scrap" rows="3" placeholder="Ce-ți trece prin cap?"
-              aria-label="Aruncă ceva înăuntru"></textarea>
+  <!-- The stream scrolls; the composer does not. Everything you touch often
+       is within a thumb's reach at the bottom, and the things you touch once a
+       month are at the top where reaching is no hardship. -->
+  <div id="stream" class="stream">
+    <button id="more" class="ghost wide more-btn" type="button" hidden>Mai vechi</button>
+
+    <p id="empty" class="empty" hidden>
+      Încă nimic.<br>Aruncă primul lucru — o jumătate de propoziție e de ajuns.
+    </p>
+
+    <ul id="scraps" class="scraps"></ul>
+
+    <p id="foot-note" class="foot-note" hidden>
+      Fragmentele rămân exact cum le-ai scris și nu sunt niciodată modificate.
+    </p>
+  </div>
+
+  <div class="composer">
+    <div id="collide-wrap" class="collide-wrap" hidden>
+      <div id="collide-out" class="collide-out" hidden>
+        <p id="collide-said" class="collide-said"></p>
+        <p id="collide-from" class="collide-from"></p>
+        <div class="collide-actions">
+          <button id="collide-keep" class="ghost" type="button">Păstrează asta</button>
+          <button id="collide-again" class="ghost" type="button">Încă una</button>
+        </div>
+      </div>
+      <button id="collide-go" class="collide-btn" type="button">Ciocnește două</button>
+    </div>
+
+    <p id="spark" class="spark" hidden></p>
+
     <div id="shot-preview" class="shot" hidden>
       <img id="shot-img" alt="">
       <button id="shot-drop" class="shot-drop" type="button" aria-label="Șterge poza">&times;</button>
     </div>
+
     <div id="rec-bar" class="rec-bar" hidden>
       <span class="rec-dot" aria-hidden="true"></span>
       <span id="rec-time" class="rec-time">0:00</span>
@@ -75,56 +105,31 @@
       <button id="rec-stop" class="primary rec-stop" type="button">Gata</button>
     </div>
 
-    <div class="capture-row">
-      <button id="hold-talk" class="ghost" type="button" aria-label="Înregistrează un gând">
-        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8">
+    <div class="composer-row">
+      <button id="hold-talk" class="round-btn" type="button" aria-label="Înregistrează un gând">
+        <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8">
           <rect x="9" y="3" width="6" height="11" rx="3"/>
           <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/>
         </svg>
-        Spune
       </button>
-      <button id="add-photo" class="ghost" type="button">
-        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8">
+      <button id="add-photo" class="round-btn" type="button" aria-label="Adaugă o poză">
+        <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8">
           <rect x="3" y="6" width="18" height="14" rx="2.5"/><circle cx="12" cy="13" r="3.4"/>
           <path d="M8.5 6 10 3.6h4L15.5 6"/>
         </svg>
-        Poză
       </button>
-      <button id="keep" class="primary" type="button">Păstrează</button>
+      <textarea id="scrap" rows="1" placeholder="Ce-ți trece prin cap?"
+                aria-label="Aruncă ceva înăuntru"></textarea>
+      <button id="keep" class="round-btn send" type="button" aria-label="Păstrează">
+        <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/>
+        </svg>
+      </button>
     </div>
     <input id="file" type="file" accept="image/*" hidden>
-  </section>
+  </div>
 
-  <p id="spark" class="spark" hidden></p>
-
-  <section id="collide-wrap" class="collide-wrap" hidden>
-    <button id="collide-go" class="ghost wide collide-btn" type="button">
-      Ciocnește două
-    </button>
-    <div id="collide-out" class="collide-out" hidden>
-      <p id="collide-said" class="collide-said"></p>
-      <p id="collide-from" class="collide-from"></p>
-      <div class="collide-actions">
-        <button id="collide-keep" class="ghost" type="button">Păstrează asta</button>
-        <button id="collide-again" class="ghost" type="button">Încă una</button>
-      </div>
-    </div>
-  </section>
-
-  <section class="scraps-wrap" aria-labelledby="scraps-head">
-    <h2 id="scraps-head" class="section-head">
-      <span>Fragmente</span><span id="scrap-count" class="count"></span>
-    </h2>
-    <ul id="scraps" class="scraps"></ul>
-    <p id="empty" class="empty" hidden>
-      Încă nimic. Aruncă primul lucru — o jumătate de propoziție e de ajuns.
-    </p>
-    <button id="more" class="ghost wide" type="button" hidden>Mai vechi</button>
-    <p class="foot-note">
-      Fragmentele rămân exact cum le-ai scris și nu sunt niciodată modificate.
-      Temele și legăturile apar aici când o să fie destule cât să aibă sens.
-    </p>
-  </section>
 </main>
 
 <!-- Setări: dispozitive și calea înapoi. -->

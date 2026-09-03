@@ -128,49 +128,63 @@ input::placeholder, textarea::placeholder { color: var(--ink-3); }
 /* ------------------------------------------------------------------- top */
 
 .top {
-  display: flex; align-items: center; gap: 10px;
-  padding: max(12px, env(safe-area-inset-top)) 16px 12px;
-  position: sticky; top: 0; z-index: 5;
-  background: color-mix(in srgb, var(--ground) 92%, transparent);
-  backdrop-filter: blur(10px);
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 9px;
+  padding: max(10px, env(safe-area-inset-top)) 10px 10px 16px;
+  background: var(--ground);
   border-bottom: 1px solid var(--line);
 }
-.top h1 { font-size: 1.15rem; flex: 1; letter-spacing: -.01em; }
+.top h1 { font-size: 1.05rem; letter-spacing: -.01em; }
 .mark { display: block; }
-
-/* --------------------------------------------------------------- capture */
-
-.capture { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-#scrap { min-height: 92px; font-size: 1.02rem; line-height: 1.5; }
-.capture-row { display: flex; gap: 10px; align-items: center; }
-.capture-row .primary { margin-left: auto; }
-
-.shot { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
-.shot img { display: block; width: 100%; max-height: 240px; object-fit: cover; }
-.shot-drop {
-  position: absolute; top: 8px; right: 8px; width: 32px; height: 32px;
-  border-radius: 50%; background: rgba(0, 0, 0, .6); color: #fff;
-  font-size: 20px; line-height: 1; display: grid; place-items: center;
+.top .count {
+  margin-left: auto; margin-right: 2px;
+  color: var(--ink-3); font-size: .82rem; font-variant-numeric: tabular-nums;
 }
+
+/* -------------------------------------------------------------- the app */
+
+/* A column that fills the screen exactly: the stream scrolls, the composer
+   does not move. Everything touched constantly sits at the bottom where a
+   thumb already is, and the things touched once a month stay at the top where
+   reaching for them costs nothing. */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+.stream {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding: 12px 16px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.more-btn { flex-shrink: 0; }
 
 /* ---------------------------------------------------------------- scraps */
 
-.scraps-wrap { padding: 0 16px; }
-.section-head {
-  display: flex; align-items: baseline; gap: 10px;
-  font-size: .78rem; text-transform: uppercase; letter-spacing: .09em;
-  color: var(--ink-3); margin: 10px 0 12px;
+/* Oldest at the top, newest at the bottom, against the composer. It reads the
+   way a conversation reads, which is the shape everyone already knows -- and
+   Magpie's reply sitting under the scrap is a reply, so the metaphor is not
+   borrowed, it is the actual structure. */
+.scraps {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 10px;
+  /* Sits against the composer when there is spare room, rather than floating
+     at the top above a field of nothing. That is the state that matters most:
+     three scraps is what the app looks like in its first week, and a screen
+     mostly full of emptiness reads as an empty app. */
+  margin-top: auto;
 }
-.count { margin-left: auto; font-weight: 500; letter-spacing: 0; text-transform: none; }
-
-.scraps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 
 .scrap {
   background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 14px 15px;
-  display: flex; flex-direction: column; gap: 10px;
-  /* The sheen sits on the left edge -- present on every scrap, so it reads as
-     the app's own mark rather than as a status. */
+  border-radius: var(--radius); padding: 13px 14px;
+  display: flex; flex-direction: column; gap: 9px;
   border-left: 3px solid transparent;
   border-image: linear-gradient(var(--sheen), var(--sheen-2)) 1;
   border-image-slice: 0 0 0 1;
@@ -179,14 +193,68 @@ input::placeholder, textarea::placeholder { color: var(--ink-3); }
 .scrap img { display: block; width: 100%; border-radius: 10px; max-height: 300px; object-fit: cover; }
 .scrap-meta {
   display: flex; align-items: center; gap: 10px;
-  font-size: .78rem; color: var(--ink-3);
+  font-size: .76rem; color: var(--ink-3);
 }
-.scrap-del { margin-left: auto; background: none; color: var(--ink-3); font-size: 20px; line-height: 1; padding: 2px 6px; border-radius: 8px; }
+.scrap-del {
+  margin-left: auto; background: none; color: var(--ink-3);
+  font-size: 20px; line-height: 1; padding: 2px 6px; border-radius: 8px;
+}
 .scrap-del:hover { color: var(--danger); background: var(--surface-2); }
 
-.empty { color: var(--ink-3); text-align: center; padding: 32px 12px; line-height: 1.6; }
-.foot-note { color: var(--ink-3); font-size: .82rem; margin: 22px 0 0; line-height: 1.55; }
-#more { margin-top: 14px; }
+.empty {
+  color: var(--ink-3); text-align: center; line-height: 1.7;
+  margin: auto 12px; padding: 20px 0;
+}
+.foot-note {
+  color: var(--ink-3); font-size: .78rem; margin: 8px 0 0;
+  line-height: 1.5; text-align: center;
+}
+
+/* -------------------------------------------------------------- composer */
+
+.composer {
+  flex-shrink: 0;
+  background: var(--ground);
+  border-top: 1px solid var(--line);
+  padding: 10px 12px max(10px, env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.composer-row { display: flex; align-items: flex-end; gap: 8px; }
+
+/* Grows with what is typed rather than being a fixed box, so a one-line
+   thought takes one line and a long one is not typed through a letterbox. */
+#scrap {
+  flex: 1;
+  min-height: 44px;
+  max-height: 40vh;
+  padding: 11px 14px;
+  border-radius: 22px;
+  line-height: 1.45;
+  overflow-y: auto;
+}
+
+/* Round, and 44px so it is a real target rather than an icon someone has to
+   aim at. */
+.round-btn {
+  flex-shrink: 0;
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--surface-2); color: var(--ink-2);
+  border: 1px solid var(--line);
+}
+.round-btn:hover { color: var(--ink); }
+.round-btn.send { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+.round-btn:disabled { opacity: .5; }
+
+.shot { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+.shot img { display: block; width: 100%; max-height: 180px; object-fit: cover; }
+.shot-drop {
+  position: absolute; top: 8px; right: 8px; width: 32px; height: 32px;
+  border-radius: 50%; background: rgba(0, 0, 0, .6); color: #fff;
+  font-size: 20px; line-height: 1; display: grid; place-items: center;
+}
 
 /* -------------------------------------------------------------- screens */
 
@@ -237,8 +305,9 @@ input::placeholder, textarea::placeholder { color: var(--ink-3); }
 }
 
 @media (min-width: 720px) {
-  .capture, .scraps-wrap { max-width: 640px; margin-inline: auto; }
-  .top { max-width: 640px; margin-inline: auto; }
+  .top, .stream > *, .composer > * { max-width: 640px; margin-inline: auto; width: 100%; }
+  .stream { align-items: center; }
+  .stream > * { align-self: center; }
 }
 
 /* ------------------------------------------------------- magpie's replies */
@@ -288,23 +357,34 @@ input::placeholder, textarea::placeholder { color: var(--ink-3); }
 
 /* --------------------------------------------------------------- collide */
 
-.collide-wrap { padding: 4px 16px 0; }
-.collide-btn { justify-content: center; color: var(--ink-2); }
+.collide-wrap { display: flex; flex-direction: column; gap: 8px; }
+
+/* A quiet pill rather than a button competing with the composer: it is a thing
+   you reach for occasionally, not the thing the screen is for. */
+.collide-btn {
+  align-self: flex-start;
+  background: transparent; color: var(--ink-3);
+  border: 1px dashed var(--line);
+  padding: 6px 13px; border-radius: 99px; font-size: .84rem;
+}
+.collide-btn:hover { color: var(--ink-2); border-color: var(--ink-3); }
+.collide-btn:disabled { opacity: .6; }
+
 .collide-out {
-  margin-top: 10px;
   background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 14px 15px;
+  border-radius: var(--radius); padding: 13px 14px;
   border-left: 3px solid var(--sheen-2);
 }
 .collide-said { margin: 0; line-height: 1.55; }
 .collide-from {
-  margin: 10px 0 0; color: var(--ink-3); font-size: .78rem;
-  overflow-wrap: anywhere;
+  margin: 9px 0 0; color: var(--ink-3); font-size: .76rem; overflow-wrap: anywhere;
 }
-.collide-actions { display: flex; gap: 8px; margin-top: 12px; }
-.collide-actions .ghost { padding: 8px 14px; font-size: .9rem; }
+.collide-actions { display: flex; gap: 8px; margin-top: 11px; }
+.collide-actions .ghost { padding: 7px 13px; font-size: .88rem; }
 
-@media (min-width: 720px) {
-  .collide-wrap { max-width: 640px; margin-inline: auto; }
-  .spark { max-width: 640px; margin-inline: auto; padding: 0 16px; }
-}
+/* ---------------------------------------------------------------- sparks */
+
+.spark { margin: 0 4px; color: var(--ink-3); font-size: .86rem; line-height: 1.45; }
+.spark::before { content: "încearcă: "; opacity: .7; }
+
+
