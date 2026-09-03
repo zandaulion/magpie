@@ -405,3 +405,33 @@ input::placeholder, textarea::placeholder { color: var(--ink-3); }
 .spark::before { content: "încearcă: "; opacity: .7; }
 
 
+
+/* ---------------------------------------------------- camera or gallery */
+
+.photo-menu-wrap { position: relative; flex-shrink: 0; }
+
+/* Above the button rather than below it: below would be off the bottom of the
+   screen, and on a phone it would also be under the thumb that opened it. */
+.photo-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  min-width: 190px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 5px;
+  display: flex; flex-direction: column; gap: 2px;
+  z-index: 30;
+}
+
+.photo-opt {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; text-align: left;
+  background: none; color: var(--ink);
+  padding: 11px 12px; border-radius: 10px;
+  font-size: .94rem;
+}
+.photo-opt:hover { background: var(--surface-2); }
+.photo-opt svg { flex-shrink: 0; color: var(--ink-3); }

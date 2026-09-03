@@ -88,9 +88,39 @@ function readFile(file) {
   });
 }
 
-$('add-photo').addEventListener('click', () => $('file').click());
+/**
+ * Camera or gallery, asked rather than guessed.
+ *
+ * The two are the same file input with and without `capture`, but they are
+ * different intentions: photographing a whiteboard in front of you, versus
+ * fishing out something already on the phone. One button that silently picks
+ * one of them is wrong half the time.
+ *
+ * A small menu rather than a third round button, because four buttons and a
+ * text box in one row leaves the box too narrow to type in on a small phone.
+ */
+function togglePhotoMenu(open) {
+  const menu = $('photo-menu');
+  const show = open ?? menu.hidden;
+  menu.hidden = !show;
+  $('add-photo').setAttribute('aria-expanded', String(show));
+}
 
-$('file').addEventListener('change', async (ev) => {
+$('add-photo').addEventListener('click', (ev) => {
+  ev.stopPropagation();
+  togglePhotoMenu();
+});
+
+$('do-camera').addEventListener('click', () => { togglePhotoMenu(false); $('file-camera').click(); });
+$('do-pick').addEventListener('click', () => { togglePhotoMenu(false); $('file-pick').click(); });
+
+// Anywhere else, or Escape, closes it.
+document.addEventListener('click', () => togglePhotoMenu(false));
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape') togglePhotoMenu(false);
+});
+
+const onPicked = async (ev) => {
   const file = ev.target.files?.[0];
   ev.target.value = '';
   if (!file) return;
@@ -103,7 +133,10 @@ $('file').addEventListener('change', async (ev) => {
   } catch (err) {
     toast(err.message);
   }
-});
+};
+
+$('file-camera').addEventListener('change', onPicked);
+$('file-pick').addEventListener('change', onPicked);
 
 $('shot-drop').addEventListener('click', clearShot);
 
