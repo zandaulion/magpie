@@ -1,10 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Magpie">
   <!-- The Scrap Collector:
-       Revisiting the original premise with bold, scalable vectors.
-       Real Eurasian Magpies have sharp black beaks; the gold accent belongs
-       to the shiny scrap of thought clamped in its bill. The tail is stepped
-       into graduated wedge feathers to remove the spoon/tool handle silhouette,
-       and the dark corvid head has contour separation against the ground. -->
+       The magpie perches upon a sleek branch crossing through at a contrasting
+       angle (+12°), visible on both sides of the bird to break any arrow silhouette.
+       Its long iridescent tail feathers hang gracefully below the perch,
+       and the corvid beak firmly holds a glowing golden thought scrap. -->
   <defs>
     <linearGradient id="sheen" x1="0%" y1="100%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#24BFA6"/>
@@ -16,34 +15,51 @@
       <stop offset="45%" stop-color="#F3C853"/>
       <stop offset="100%" stop-color="#C58812"/>
     </linearGradient>
+    <linearGradient id="branch-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#222834"/>
+      <stop offset="40%" stop-color="#3C485C"/>
+      <stop offset="100%" stop-color="#242B38"/>
+    </linearGradient>
   </defs>
 
   <rect width="512" height="512" rx="112" fill="#14161A"/>
-  <circle cx="260" cy="256" r="166" fill="#181C25" opacity="0.7"/>
+  <circle cx="256" cy="256" r="166" fill="#181C25" opacity="0.7"/>
 
-  <!-- Stepped iridescent magpie tail (graduated wedge feathers) -->
-  <path d="M124 456 L238 316 C242 322 244 330 240 338 L142 468 C136 476 126 470 124 456 Z" fill="url(#sheen)" opacity="0.8"/>
-  <path d="M96 448 L232 284 C240 292 242 306 236 318 L114 460 C104 472 94 464 96 448 Z" fill="url(#sheen)"/>
-  <path d="M152 464 L252 342 C256 348 256 356 250 362 L170 470 C162 478 154 474 152 464 Z" fill="url(#sheen)" opacity="0.65"/>
+  <!-- Stepped iridescent magpie tail (hanging gracefully at ~75°) -->
+  <g fill="url(#sheen)">
+    <!-- Central long feather -->
+    <path d="M228 322 L196 468 C194 476 184 480 176 476 C170 472 168 464 170 456 L206 314 Z"/>
+    <!-- Left outer feather -->
+    <path d="M220 328 L174 454 C170 462 162 464 156 460 C150 454 150 446 154 440 L202 324 Z" opacity="0.8"/>
+    <!-- Right inner feather -->
+    <path d="M236 332 L216 458 C214 466 222 472 230 470 C236 466 238 458 236 450 L242 336 Z" opacity="0.65"/>
+  </g>
 
-  <!-- White flank and scapular plumage -->
-  <path d="M228 326 C206 278 220 220 262 188 C294 164 336 162 368 178 C338 212 316 260 306 312 C280 334 250 338 228 326 Z" fill="#F2F4F6"/>
+  <!-- The Branch: crossing through at ~12°, visible on BOTH sides of the bird -->
+  <path d="M64 366 C136 354 236 342 340 328 C404 320 444 314 464 310 C468 318 464 324 456 326 C436 330 396 336 336 344 C236 358 136 370 66 382 C60 376 60 370 64 366 Z" fill="url(#branch-grad)"/>
 
-  <!-- Iridescent wing covert -->
-  <path d="M246 270 C272 222 332 200 380 224 C354 286 308 334 238 336 C234 312 238 288 246 270 Z" fill="url(#sheen)"/>
+  <!-- Magpie Breast & Belly: Crisp White Flank Patch -->
+  <path d="M238 334 C216 286 230 226 274 192 C306 168 348 166 378 182 C348 216 326 264 316 316 C290 338 260 342 238 334 Z" fill="#F2F4F6"/>
 
-  <!-- Dark corvid head, nape and throat -->
-  <path d="M312 154 C346 122 404 132 422 172 C430 190 426 210 412 226 C398 218 382 202 370 182 C356 162 334 156 312 154 Z" fill="#242936" stroke="#353C4D" stroke-width="2"/>
+  <!-- Wing Covert (Iridescent sweep) -->
+  <path d="M256 276 C282 228 342 206 390 230 C364 292 318 340 248 342 C244 318 248 294 256 276 Z" fill="url(#sheen)"/>
 
-  <!-- Authentic Corvid Beak -->
-  <path d="M408 166 L462 164 L418 188 Z" fill="#101216"/>
-  <path d="M408 166 L462 164 L426 174 Z" fill="#363E50"/>
+  <!-- Magpie Claws grasping the branch -->
+  <path d="M276 340 C274 348 268 354 260 354 C256 354 254 350 256 344 C260 338 268 334 276 340 Z" fill="#101216"/>
+  <path d="M294 336 C292 344 286 350 278 350 C274 350 272 346 274 340 C278 334 286 330 294 336 Z" fill="#101216"/>
 
-  <!-- The Golden Scrap: luminous thought fragment held in the bill -->
-  <polygon points="446,132 494,150 474,196 426,178" fill="url(#gold)"/>
-  <line x1="446" y1="132" x2="474" y2="196" stroke="#FFFFFF" stroke-width="1.8" opacity="0.6"/>
+  <!-- Head & Throat in profile -->
+  <path d="M322 160 C356 128 414 138 432 178 C440 196 436 216 422 232 C408 224 392 208 380 188 C366 168 344 162 322 160 Z" fill="#242936" stroke="#353C4D" stroke-width="2"/>
+
+  <!-- Authentic Corvid Beak holding scrap -->
+  <path d="M418 172 L472 170 L428 194 Z" fill="#101216"/>
+  <path d="M418 172 L472 170 L436 180 Z" fill="#363E50"/>
+
+  <!-- The Golden Scrap -->
+  <polygon points="456,138 504,156 484,202 436,184" fill="url(#gold)"/>
+  <line x1="456" y1="138" x2="484" y2="202" stroke="#FFFFFF" stroke-width="1.8" opacity="0.6"/>
 
   <!-- Eye -->
-  <circle cx="384" cy="168" r="5.5" fill="#F2F4F6"/>
-  <circle cx="385" cy="167" r="2.2" fill="#101216"/>
+  <circle cx="394" cy="174" r="5.5" fill="#F2F4F6"/>
+  <circle cx="395" cy="173" r="2.2" fill="#101216"/>
 </svg>
