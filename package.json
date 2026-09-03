@@ -1,0 +1,16 @@
+{
+  "name": "magpie",
+  "version": "0.1.0",
+  "description": "Throw scraps in; it works out what they add up to",
+  "main": "server/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test \"core/**/*.test.js\" \"test/**/*.test.js\""
+  },
+  "license": "GPL-3.0-or-later",
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

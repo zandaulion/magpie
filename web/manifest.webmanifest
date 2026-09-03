@@ -1,0 +1,14 @@
+{
+  "name": "Magpie",
+  "short_name": "Magpie",
+  "description": "Throw scraps in; it works out what they add up to",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#14161A",
+  "theme_color": "#14161A",
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "/icons/maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

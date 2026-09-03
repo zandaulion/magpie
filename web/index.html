@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Magpie</title>
+<meta name="theme-color" content="#14161A">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/icon.svg">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<!-- The gate. Nothing else is reachable until a device is registered. -->
+<section id="gate" class="gate" hidden>
+  <div class="gate-inner">
+    <img class="gate-mark" src="/icons/icon.svg" alt="" width="72" height="72">
+    <h1>Magpie</h1>
+    <p class="lede">Throw things in. It works out what they add up to.</p>
+
+    <div class="seg" role="tablist">
+      <button class="seg-btn is-on" data-mode="invite" role="tab">Invite</button>
+      <button class="seg-btn" data-mode="link" role="tab">Add this device</button>
+      <button class="seg-btn" data-mode="recover" role="tab">Recovery code</button>
+    </div>
+
+    <label class="field" for="gate-code"><span id="gate-label">Invite code</span>
+      <input id="gate-code" type="text" autocomplete="off" autocapitalize="characters"
+             spellcheck="false" placeholder="ABCDE-FGHJK">
+    </label>
+    <p id="gate-hint" class="hint">The code you were sent.</p>
+    <button id="gate-go" class="primary" type="button">Continue</button>
+    <p id="gate-error" class="err" hidden></p>
+  </div>
+</section>
+
+<!-- Shown once, on the first device, and never again. -->
+<section id="recovery" class="sheet" hidden>
+  <div class="sheet-inner">
+    <h2>Keep this somewhere safe</h2>
+    <p>It is the only way back into your scraps if you lose every device. We
+       store it hashed, so we cannot show it to you again — only replace it.</p>
+    <p id="recovery-code" class="code-big"></p>
+    <button id="recovery-copy" class="secondary" type="button">Copy</button>
+    <button id="recovery-done" class="primary" type="button">I have written it down</button>
+  </div>
+</section>
+
+<main id="app" hidden>
+  <header class="top">
+    <img class="mark" src="/icons/icon.svg" alt="" width="28" height="28">
+    <h1>Magpie</h1>
+    <button id="open-settings" class="icon-btn" type="button" aria-label="Settings">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M12 2.6v2.6M12 18.8v2.6M21.4 12h-2.6M5.2 12H2.6M18.6 5.4l-1.8 1.8M7.2 16.8l-1.8 1.8M18.6 18.6l-1.8-1.8M7.2 7.2 5.4 5.4"/>
+      </svg>
+    </button>
+  </header>
+
+  <!-- Capture, first thing, always. If dumping is behind navigation the whole
+       premise is gone. -->
+  <section class="capture">
+    <textarea id="scrap" rows="3" placeholder="What's the thought?"
+              aria-label="Throw something in"></textarea>
+    <div id="shot-preview" class="shot" hidden>
+      <img id="shot-img" alt="">
+      <button id="shot-drop" class="shot-drop" type="button" aria-label="Remove picture">&times;</button>
+    </div>
+    <div class="capture-row">
+      <button id="add-photo" class="ghost" type="button">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="3" y="6" width="18" height="14" rx="2.5"/><circle cx="12" cy="13" r="3.4"/>
+          <path d="M8.5 6 10 3.6h4L15.5 6"/>
+        </svg>
+        Picture
+      </button>
+      <button id="keep" class="primary" type="button">Keep it</button>
+    </div>
+    <input id="file" type="file" accept="image/*" hidden>
+  </section>
+
+  <section class="scraps-wrap" aria-labelledby="scraps-head">
+    <h2 id="scraps-head" class="section-head">
+      <span>Scraps</span><span id="scrap-count" class="count"></span>
+    </h2>
+    <ul id="scraps" class="scraps"></ul>
+    <p id="empty" class="empty" hidden>
+      Nothing yet. Throw the first thing in — a half sentence is plenty.
+    </p>
+    <button id="more" class="ghost wide" type="button" hidden>Older</button>
+    <p class="foot-note">
+      Scraps are kept exactly as written and never edited. Topics and
+      connections will appear here once there is enough to be honest about.
+    </p>
+  </section>
+</main>
+
+<!-- Settings: devices, and the way back in. -->
+<section id="settings" class="screen" hidden>
+  <header class="screen-top">
+    <h2>Settings</h2>
+    <button id="settings-close" class="icon-btn" type="button" aria-label="Close">&times;</button>
+  </header>
+  <div class="screen-body">
+    <h3>Your devices</h3>
+    <ul id="devices" class="devices"></ul>
+    <button id="link-device" class="secondary wide" type="button">Add another device</button>
+    <div id="link-out" class="code-box" hidden>
+      <p class="hint">Enter this on the other device, under “Add this device”. It lasts ten minutes.</p>
+      <p id="link-code" class="code-big"></p>
+    </div>
+    <h3>Recovery</h3>
+    <p class="hint">Replaces your recovery code. The old one stops working straight away.</p>
+    <button id="new-recovery" class="secondary wide" type="button">New recovery code</button>
+  </div>
+</section>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>

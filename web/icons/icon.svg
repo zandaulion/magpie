@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Magpie">
+  <!-- Three passes to get here. The first had a beak, an eye and a shiny thing
+       and turned to smudge below 48px. The second dropped all the detail and
+       read as a spoon, because nothing left in it said "bird".
+       The beak is what says bird, so it stays and it is large: a hard wedge,
+       roughly a tenth of the tile. Everything else is a flat block. -->
+  <defs>
+    <linearGradient id="sheen" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#2FA89B"/>
+      <stop offset="52%" stop-color="#3C7FC4"/>
+      <stop offset="100%" stop-color="#8A5BD0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="#14161A"/>
+
+  <!-- Tail: long, straight, angled down and left. The bird's whole balance. -->
+  <path d="M104 424 L232 296 L286 350 L158 478 Z" fill="url(#sheen)"/>
+
+  <!-- Body: a teardrop leaning up and right, wide at the shoulder, tapering
+       into the tail so the two read as one animal. -->
+  <path d="M214 328 C186 274 206 206 262 176 C318 146 384 166 404 218
+           C424 270 392 326 330 342 C288 352 244 350 214 328 Z" fill="#F2F4F6"/>
+
+  <!-- Black head, sitting on the shoulder. -->
+  <path d="M318 178 C356 152 406 166 418 208 C428 244 404 274 366 278
+           C330 282 306 258 306 222 C306 204 310 188 318 178 Z" fill="#14161A"/>
+
+  <!-- The beak. A blunt wedge pointing up and right, wide enough that it is
+       still a beak at 28 pixels. -->
+  <path d="M406 176 L494 148 L432 226 Z" fill="#E4B84B"/>
+
+  <!-- Eye, as a hole in the black rather than a dot on it: at small sizes a
+       light shape on dark survives where a dark dot on dark does not. -->
+  <circle cx="372" cy="206" r="15" fill="#F2F4F6"/>
+</svg>
