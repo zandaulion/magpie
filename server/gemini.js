@@ -18,7 +18,7 @@ export class ModelError extends Error {
 
 async function call(parts, { temperature = 0.9, maxOutputTokens = 800, schema = null, think = false } = {}) {
   const key = getKey();
-  if (!key) throw new ModelError('not_configured', 'No model is configured.', 503);
+  if (!key) throw new ModelError('not_configured', 'Nu e configurat niciun model.', 503);
 
   const body = {
     contents: [{ role: 'user', parts }],
@@ -43,10 +43,10 @@ async function call(parts, { temperature = 0.9, maxOutputTokens = 800, schema = 
       signal: AbortSignal.timeout(45000)
     });
   } catch {
-    throw new ModelError('unreachable', 'Could not reach the model. Try again in a moment.', 503);
+    throw new ModelError('unreachable', 'N-am putut ajunge la model. Mai încearcă într-un minut.', 503);
   }
 
-  if (res.status === 429) throw new ModelError('rate_limited', 'Too many at once. Try again shortly.', 429);
+  if (res.status === 429) throw new ModelError('rate_limited', 'Prea multe deodată. Mai încearcă în scurt timp.', 429);
   if (!res.ok) {
     let detail = `status ${res.status}`;
     try { const j = await res.json(); if (j?.error?.message) detail = j.error.message; } catch {}
@@ -55,7 +55,7 @@ async function call(parts, { temperature = 0.9, maxOutputTokens = 800, schema = 
 
   const json = await res.json();
   const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new ModelError('empty', 'The model returned nothing.', 502);
+  if (!text) throw new ModelError('empty', 'Modelul n-a returnat nimic.', 502);
 
   return {
     text: text.trim(),
@@ -70,24 +70,29 @@ async function call(parts, { temperature = 0.9, maxOutputTokens = 800, schema = 
 /**
  * The voice of the thing.
  *
- * Written for a fifteen-year-old, which mostly means what it must not be. No
- * exclamation marks, no encouragement, no enthusiasm, and never the register of
- * an adult being fun -- that is the fastest way to make someone close an app and
- * not reopen it. Short, dry, and then quiet.
+ * Romanian, because the person reading it thinks in Romanian and translating in
+ * your head is friction -- which is the one thing this app exists to remove.
+ *
+ * Written for a fifteen-year-old, which is mostly a list of what it must not
+ * be: no exclamation marks, no praise, no encouragement, and never the register
+ * of an adult trying to be fun. Always "tu", never the polite form -- a bird
+ * that addresses you formally is a bird from school.
  */
-const VOICE = `You are Magpie: a bird that collects the interesting bits of what
-someone throws at you. You are dry, brief and a bit sideways. You are not a
-coach, an assistant or a teacher, and you never sound like one.
+const VOICE = `Ești Magpie: o coțofană care adună ce e interesant din ce arunci
+spre ea. Ești seacă, scurtă și un pic piezișă. Nu ești antrenor, asistent sau
+profesor și nu suni niciodată ca unul.
 
-Rules you do not break:
-  - One sentence. Two at the very most, and only if the second is short.
-  - No exclamation marks. No emoji. No praise. Never say "great" or "love this"
-    or "interesting" about what they wrote.
-  - Never tell them what to do. Never mention productivity, goals, focus,
-    organising, or their own thinking process.
-  - Do not summarise what they said back to them. They know what they wrote.
-  - If the scrap is dull, that is fine. Say something small and move on. Do not
-    manufacture enthusiasm.`;
+Scrii în română. Te adresezi cu "tu", niciodată cu dumneavoastră.
+
+Reguli pe care nu le încalci:
+  - O propoziție. Cel mult două, și doar dacă a doua e scurtă.
+  - Fără semne de exclamare. Fără emoji. Fără laude. Nu spui niciodată "super",
+    "genial" sau "interesant" despre ce a scris.
+  - Nu îi spui ce să facă. Nu pomenești de productivitate, obiective,
+    concentrare, organizare sau felul în care gândește.
+  - Nu îi rezumi ce a scris. Știe ce a scris.
+  - Dacă fragmentul e banal, e în regulă. Spui ceva mic și mergi mai departe.
+    Nu inventezi entuziasm.`;
 
 /**
  * One short thing said back, immediately, on a single scrap.
@@ -102,14 +107,14 @@ Rules you do not break:
  */
 export async function echo(body, { wantQuestion = Math.random() < 0.45 } = {}) {
   const shape = wantQuestion
-    ? `Ask one short question about it. Curious, not instructive: the question a
-       friend asks, not the one a teacher asks. Never ask what their next step
-       is or how they will get started.`
-    : `Say one short thing back. A dry remark, an odd angle on it, or something
-       you noticed. Not advice.`;
+    ? `Pune o întrebare scurtă despre asta. Curioasă, nu instructivă: întrebarea
+       pe care o pune un prieten, nu una de la școală. Nu întreba niciodată care
+       e următorul pas sau cum se apucă.`
+    : `Spune un lucru scurt înapoi. O remarcă seacă, un unghi ciudat, sau ceva
+       ce ai observat. Nu sfaturi.`;
 
   const { text, usage, model } = await call(
-    [{ text: `${VOICE}\n\n${shape}\n\nWhat they threw in:\n\n${body}` }],
+    [{ text: `${VOICE}\n\n${shape}\n\nCe a aruncat înăuntru:\n\n${body}` }],
     { temperature: 1.0, maxOutputTokens: 400 }
   );
   // Models like to wrap a single line in quotes; it reads as a citation rather
@@ -129,9 +134,9 @@ export async function collide(first, second) {
   const { text, usage, model } = await call(
     [{ text: `${VOICE}
 
-Two unrelated things they wrote. Put them together and say what falls out: an
-idea, a joke, a question, something absurd. Do not explain the connection or
-point out that they are unrelated. One or two sentences.
+Două lucruri fără legătură pe care le-a scris. Pune-le împreună și spune ce iese:
+o idee, o glumă, o întrebare, ceva absurd. Nu explica legătura și nu menționa că
+n-au legătură. Una sau două propoziții.
 
 A: ${first}
 

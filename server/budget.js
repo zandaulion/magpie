@@ -60,7 +60,7 @@ export function charge(accountId) {
   if (!row) {
     throw new BudgetError(
       'daily_limit',
-      `That is ${DAILY_LIMIT} photo readings today, which is as far as a day goes. It starts again tomorrow.`
+      `Astea sunt ${DAILY_LIMIT} pe ziua de azi, cât ține o zi. O ia de la capăt mâine.`
     );
   }
   return row.calls;

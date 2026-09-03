@@ -2,9 +2,14 @@
 
 Throw scraps in. It works out what they add up to.
 
-Text and pictures now, voice later. The point is that recording a thought
-costs nothing — no title, no category, no tags — and that everything Magpie
-makes of them afterwards sits on top rather than replacing them.
+Text, pictures and voice. The point is that recording a thought costs nothing —
+no title, no category, no tags — and that everything Magpie makes of them
+afterwards sits on top rather than replacing them.
+
+**The interface and Magpie's replies are in Romanian.** The people using it
+think in Romanian, and reading a second language is friction — which is the one
+thing this app exists to remove. Comments and commits stay in English; only
+what a person sees is translated.
 
 ## What is here
 

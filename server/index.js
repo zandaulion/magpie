@@ -61,7 +61,7 @@ app.get('/api/health', (req, res) => {
 app.post('/api/auth/redeem', (req, res) => {
   const result = redeemInvite(req.body?.code, deviceLabel(req.body?.label));
   if (!result) {
-    return res.status(400).json({ error: 'bad_code', message: 'That code is not valid, or has already been used.' });
+    return res.status(400).json({ error: 'bad_code', message: 'Codul nu e valid sau a fost deja folosit.' });
   }
   setTokenCookie(res, result.token);
   // Shown once and never again: it is stored hashed and can only be replaced.
@@ -76,7 +76,7 @@ app.post('/api/auth/redeem', (req, res) => {
 app.post('/api/auth/link', (req, res) => {
   const result = redeemLinkCode(req.body?.code, deviceLabel(req.body?.label));
   if (!result) {
-    return res.status(400).json({ error: 'bad_code', message: 'That link code is not valid or has expired.' });
+    return res.status(400).json({ error: 'bad_code', message: 'Codul de legare nu e valid sau a expirat.' });
   }
   setTokenCookie(res, result.token);
   res.json({ ok: true, accountId: result.accountId, deviceId: result.deviceId });
@@ -85,7 +85,7 @@ app.post('/api/auth/link', (req, res) => {
 app.post('/api/auth/recover', (req, res) => {
   const result = redeemRecovery(req.body?.code, deviceLabel(req.body?.label));
   if (!result) {
-    return res.status(400).json({ error: 'bad_code', message: 'That recovery code is not valid.' });
+    return res.status(400).json({ error: 'bad_code', message: 'Codul de recuperare nu e valid.' });
   }
   setTokenCookie(res, result.token);
   res.json({ ok: true, accountId: result.accountId, deviceId: result.deviceId });
@@ -110,7 +110,7 @@ app.post('/api/devices/recovery', requireDevice, (req, res) => {
 
 app.post('/api/devices/:id/revoke', requireDevice, (req, res) => {
   if (req.params.id === req.device.id) {
-    return res.status(400).json({ error: 'self', message: 'Use another device to sign this one out.' });
+    return res.status(400).json({ error: 'self', message: 'Folosește alt dispozitiv ca să-l scoți pe acesta.' });
   }
   if (!revokeDevice(req.device.account_id, req.params.id)) {
     return res.status(404).json({ error: 'not_found' });
@@ -140,7 +140,7 @@ app.post('/api/scraps', requireDevice, (req, res) => {
   const audioId = typeof req.body?.audioId === 'string' ? req.body.audioId : null;
 
   if (!body && !image && !audioId) {
-    return res.status(400).json({ error: 'empty', message: 'Nothing to keep.' });
+    return res.status(400).json({ error: 'empty', message: 'Nimic de păstrat.' });
   }
 
   let imageId = null;
@@ -269,7 +269,7 @@ app.post('/api/collide', requireDevice, asyncRoute(async (req, res) => {
   if (pool.length < 2) {
     return res.status(400).json({
       error: 'need_two',
-      message: 'Throw in one more and Magpie can start knocking them together.'
+      message: 'Mai aruncă unul și Magpie poate începe să le ciocnească.'
     });
   }
 
@@ -312,7 +312,7 @@ app.post('/api/collide', requireDevice, asyncRoute(async (req, res) => {
 app.post('/api/voice', requireDevice, asyncRoute(async (req, res) => {
   const audio = typeof req.body?.audio === 'string' ? req.body.audio : null;
   if (!audio || audio.length < 100) {
-    return res.status(400).json({ error: 'no_audio', message: 'Nothing was recorded.' });
+    return res.status(400).json({ error: 'no_audio', message: 'Nu s-a înregistrat nimic.' });
   }
 
   const mime = typeof req.body?.mimeType === 'string' ? req.body.mimeType : 'audio/webm';
@@ -385,7 +385,7 @@ app.use((err, req, res, next) => {
     return res.status(err.status).json({ error: err.code, message: err.message });
   }
   console.error('unhandled', err);
-  res.status(500).json({ error: 'internal', message: 'Something went wrong on the server.' });
+  res.status(500).json({ error: 'internal', message: 'Ceva n-a mers pe server.' });
 });
 
 // Loopback by default, so running this directly never exposes it by accident.

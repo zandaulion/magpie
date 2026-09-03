@@ -21,7 +21,7 @@ async function api(path, options = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = new Error(data.message || `Request failed (${res.status})`);
+    const err = new Error(data.message || `Cererea a eșuat (${res.status})`);
     err.code = data.error;
     err.status = res.status;
     throw err;
@@ -75,7 +75,7 @@ function readFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result).split(',')[1]);
-    reader.onerror = () => reject(new Error('Could not read that file.'));
+    reader.onerror = () => reject(new Error('N-am putut citi fișierul.'));
     reader.readAsDataURL(file);
   });
 }
@@ -108,7 +108,7 @@ function clearShot() {
 
 async function keep() {
   const body = $('scrap').value.trim();
-  if (!body && !state.shot) return toast('Nothing to keep yet.');
+  if (!body && !state.shot) return toast('N-ai scris nimic încă.');
 
   $('keep').disabled = true;
   try {
@@ -191,7 +191,7 @@ async function startTalking() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch {
-    return toast('No microphone available.');
+    return toast('N-am acces la microfon.');
   }
 
   // webm/opus everywhere except Safari, which wants mp4.
@@ -231,12 +231,12 @@ async function finishTalking(stream, mimeType) {
   const blob = new Blob(recChunks, { type: mimeType });
   if (blob.size < 1200) return;   // a tap rather than a thought
 
-  toast('Listening back…');
+  toast('Ascult…');
   try {
     const reader = new FileReader();
     const base64 = await new Promise((ok, no) => {
       reader.onload = () => ok(String(reader.result).split(',')[1]);
-      reader.onerror = () => no(new Error('Could not read the recording.'));
+      reader.onerror = () => no(new Error('N-am putut citi înregistrarea.'));
       reader.readAsDataURL(blob);
     });
 
@@ -273,7 +273,7 @@ function syncCollide() {
 
 async function runCollide() {
   $('collide-go').disabled = true;
-  $('collide-go').textContent = 'Knocking…';
+  $('collide-go').textContent = 'Ciocnesc…';
   try {
     const out = await api('/api/collide', { method: 'POST' });
     $('collide-said').textContent = out.body;
@@ -285,7 +285,7 @@ async function runCollide() {
     toast(err.message);
   } finally {
     $('collide-go').disabled = false;
-    $('collide-go').textContent = 'Knock two together';
+    $('collide-go').textContent = 'Ciocnește două';
   }
 }
 
@@ -314,16 +314,16 @@ $('collide-keep').addEventListener('click', async () => {
  * they never nag: shown quietly, gone the moment anything is typed.
  */
 const SPARKS = [
-  'the weirdest thing you noticed today',
-  'something that annoyed you that nobody else seems bothered by',
-  'a thing you would build if it were easy',
-  'an opinion you have not said out loud',
-  'something you keep meaning to look up',
-  'the worst idea you have had this week',
-  'a thing that would be better if it were bigger',
-  'something you noticed about a song',
-  'a question you do not know the answer to',
-  'a thing that should exist and does not'
+  'cel mai ciudat lucru pe care l-ai văzut azi',
+  'ceva care te enervează și pe nimeni altcineva',
+  'un lucru pe care l-ai construi dacă ar fi ușor',
+  'o părere pe care n-ai spus-o cu voce tare',
+  'ceva ce tot zici că o să cauți',
+  'cea mai proastă idee a ta din săptămâna asta',
+  'un lucru care ar fi mai bun dacă ar fi mai mare',
+  'ceva ce ai observat la o piesă',
+  'o întrebare la care nu știi răspunsul',
+  'un lucru care ar trebui să existe și nu există'
 ];
 
 function showSpark() {
@@ -349,13 +349,13 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
 function when(iso) {
   const then = new Date(iso);
   const mins = Math.round((Date.now() - then.getTime()) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return 'chiar acum';
+  if (mins < 60) return `acum ${mins} min`;
   const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `acum ${hours} h`;
   const days = Math.round(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return then.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  if (days < 7) return `acum ${days} z`;
+  return then.toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' });
 }
 
 function renderScraps() {
@@ -372,7 +372,7 @@ function renderScraps() {
       ${s.echo ? `<p class="scrap-echo">${esc(s.echo)}</p>` : ''}
       <div class="scrap-meta">
         <span>${esc(when(s.createdAt))}</span>
-        <button class="scrap-del" type="button" data-del="${esc(s.id)}" aria-label="Delete this scrap">&times;</button>
+        <button class="scrap-del" type="button" data-del="${esc(s.id)}" aria-label="Șterge fragmentul">&times;</button>
       </div>
     </li>`).join('');
 }
@@ -380,7 +380,7 @@ function renderScraps() {
 $('scraps').addEventListener('click', async (ev) => {
   const id = ev.target.closest('[data-del]')?.dataset.del;
   if (!id) return;
-  if (!confirm('Delete this scrap? It is not recoverable.')) return;
+  if (!confirm('Ștergi fragmentul? Nu se mai poate recupera.')) return;
   try {
     await api(`/api/scraps/${id}`, { method: 'DELETE' });
     state.scraps = state.scraps.filter((s) => s.id !== id);
@@ -429,9 +429,9 @@ async function renderDevices() {
     state.me = me;
     $('devices').innerHTML = me.devices.map((d) => `
       <li class="device">
-        <span class="device-name">${esc(d.label || 'Unnamed device')}</span>
-        ${d.id === me.deviceId ? '<span class="device-this">this one</span>' : ''}
-        <span class="device-when">${d.last_seen ? esc(when(d.last_seen)) : 'not used yet'}</span>
+        <span class="device-name">${esc(d.label || 'Dispozitiv fără nume')}</span>
+        ${d.id === me.deviceId ? '<span class="device-this">acesta</span>' : ''}
+        <span class="device-when">${d.last_seen ? esc(when(d.last_seen)) : 'nefolosit încă'}</span>
       </li>`).join('');
   } catch (err) {
     toast(err.message);
@@ -449,7 +449,7 @@ $('link-device').addEventListener('click', async () => {
 });
 
 $('new-recovery').addEventListener('click', async () => {
-  if (!confirm('Replace your recovery code? The old one stops working immediately.')) return;
+  if (!confirm('Înlocuiești codul de recuperare? Cel vechi nu mai merge imediat.')) return;
   try {
     const { recoveryCode } = await api('/api/devices/recovery', { method: 'POST' });
     showRecovery(recoveryCode);
@@ -469,7 +469,7 @@ $('recovery-copy').addEventListener('click', async () => {
   const text = $('recovery-code').textContent;
   try {
     await navigator.clipboard.writeText(text);
-    toast('Copied');
+    toast('Copiat');
   } catch {
     // No clipboard API outside a secure context; select it instead so it can
     // be copied by hand.
@@ -477,7 +477,7 @@ $('recovery-copy').addEventListener('click', async () => {
     range.selectNodeContents($('recovery-code'));
     getSelection().removeAllRanges();
     getSelection().addRange(range);
-    toast('Select and copy');
+    toast('Selectează și copiază');
   }
 });
 
@@ -487,9 +487,9 @@ $('recovery-done').addEventListener('click', () => { $('recovery').hidden = true
 
 let gateMode = 'invite';
 const GATE_COPY = {
-  invite:  { label: 'Invite code',   hint: 'The code you were sent.',                       ph: 'ABCDE-FGHJK' },
-  link:    { label: 'Link code',     hint: 'Made under Settings on a device already in.',   ph: 'ABCDE-FGHJK' },
-  recover: { label: 'Recovery code', hint: 'The code you wrote down when you first joined.', ph: 'ABCDE-FGHJKLM' }
+  invite:  { label: 'Cod de invitație',  hint: 'Codul pe care l-ai primit.',                          ph: 'ABCDE-FGHJK' },
+  link:    { label: 'Cod de legare',     hint: 'Îl faci din Setări, pe un dispozitiv deja intrat.',   ph: 'ABCDE-FGHJK' },
+  recover: { label: 'Cod de recuperare', hint: 'Codul pe care l-ai notat când ai intrat prima oară.', ph: 'ABCDE-FGHJKLM' }
 };
 
 document.querySelectorAll('.seg-btn').forEach((btn) => {
@@ -517,7 +517,7 @@ $('gate-go').addEventListener('click', async () => {
   try {
     const data = await api(path, {
       method: 'POST',
-      body: JSON.stringify({ code, label: navigator.userAgent.includes('Android') ? 'Android' : 'Device' })
+      body: JSON.stringify({ code, label: navigator.userAgent.includes('Android') ? 'Android' : 'Dispozitiv' })
     });
     $('gate').hidden = true;
     $('app').hidden = false;
@@ -548,7 +548,7 @@ $('gate-code').addEventListener('keydown', (ev) => {
     const invited = new URLSearchParams(location.search).get('invite');
     if (invited) {
       $('gate-code').value = invited.toUpperCase();
-      $('gate-hint').textContent = 'Code filled in from your link — press Continue.';
+      $('gate-hint').textContent = 'Codul e completat din link — apasă Continuă.';
       history.replaceState(history.state, '', location.pathname);
     }
   }
@@ -556,6 +556,7 @@ $('gate-code').addEventListener('keydown', (ev) => {
 
 installUpdates({
   appName: 'Magpie',
+  message: 'Magpie s-a actualizat la ultima versiune',
   toast: (message) => toast(message),
   // A thought half-typed is unsaved work, and reloading through it would lose
   // exactly the thing this app promises to keep.
