@@ -65,10 +65,6 @@ function dismissScreen(name) {
   history.go(-(screens.length - i));
 }
 
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') focusBox();
-});
-
 window.addEventListener('popstate', () => {
   const depth = history.state?.depth || 0;
   while (screens.length > depth) {
@@ -204,7 +200,10 @@ async function keep() {
     renderScraps({ toBottom: true });
     autoGrow();
     tick();
-    // Straight on to the next one without reaching for the field again.
+    // Kept deliberately, unlike focus on arrival: you were already typing with
+    // the keyboard up, so a second thought should not need a second reach. The
+    // app opening is the opposite case -- it is often opened to read, and a
+    // keyboard covering half the screen to do that is hostile.
     $('scrap').focus();
     // Asked for after the scrap is safely kept, so a slow or absent model
     // costs a remark and never a thought.
@@ -410,29 +409,6 @@ function showSpark() {
   $('spark').hidden = false;
 }
 
-/**
- * Put the cursor in the box the moment there is a box.
- *
- * The app is opened to throw something in, so the thing you came to do should
- * be one keystroke away rather than one tap and then a keystroke.
- *
- * On a phone this focuses the field but does not necessarily raise the
- * keyboard: browsers only open it in response to a real touch, and nothing can
- * be done about that from script. Focusing is still worth it -- the caret is
- * already where it needs to be, and tapping anywhere in the field types rather
- * than aims.
- *
- * Refuses when something is on top or there is already text, so returning to
- * the app in the middle of something never yanks the view around.
- */
-function focusBox() {
-  if (screens.length) return;
-  if ($('app').hidden) return;
-  const box = $('scrap');
-  if (document.activeElement === box) return;
-  try { box.focus({ preventScroll: true }); } catch { box.focus(); }
-}
-
 function autoGrow() {
   const box = $('scrap');
   box.style.height = 'auto';
@@ -547,7 +523,6 @@ async function loadScraps() {
   renderScraps({ toBottom: true });
   syncCollide();
   showSpark();
-  focusBox();
 }
 
 // -------------------------------------------------------------- settings
