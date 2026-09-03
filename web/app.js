@@ -126,6 +126,8 @@ const onPicked = async (ev) => {
     state.shot = { base64: await readFile(file), mimeType: file.type || 'image/jpeg', objectUrl };
     $('shot-img').src = objectUrl;
     $('shot-preview').hidden = false;
+    $('shot-read').hidden = true;
+    readShotText();
   } catch (err) {
     toast(err.message);
   }
@@ -139,14 +141,19 @@ $('shot-drop').addEventListener('click', clearShot);
 /**
  * Lift the words off a photographed board or page.
  *
- * Offered rather than automatic: reading a picture means sending it away, and
- * that should be something you press, not something that happens to every
- * photo you attach. The text lands in the box beside the picture, which is
- * kept either way.
+ * Runs by itself the moment a picture is attached. It was a button on the
+ * grounds that reading a picture means sending it away -- but the picture is
+ * already sent, automatically, so Magpie can say something about it. Making
+ * the reading a separate decision protected nothing and cost a tap on the one
+ * capture that exists to avoid typing.
+ *
+ * Silent when there is nothing to read. Most photographs are not of text, and
+ * saying so every time would be a notification about the ordinary case.
  */
-$('shot-read').addEventListener('click', async () => {
-  if (!state.shot) return;
+async function readShotText({ manual = false } = {}) {
+  if (!state.shot || state.shot.read) return;
   const btn = $('shot-read');
+  btn.hidden = false;
   btn.disabled = true;
   btn.textContent = 'Citesc…';
   try {
@@ -154,23 +161,38 @@ $('shot-read').addEventListener('click', async () => {
       method: 'POST',
       body: JSON.stringify({ image: state.shot.base64, mimeType: state.shot.mimeType })
     });
-    if (!text) { toast('N-am găsit text în poză.'); return; }
+    if (!state.shot) return;              // dropped while it was being read
+    state.shot.read = true;
+    if (!text) {
+      // Nothing there. Leave the retry for anyone who thinks otherwise.
+      btn.hidden = !manual;
+      btn.textContent = 'Citește textul';
+      btn.disabled = false;
+      if (manual) toast('N-am găsit text în poză.');
+      return;
+    }
     const box = $('scrap');
     box.value = box.value.trim() ? `${box.value.trim()}\n${text}` : text;
     autoGrow();
-    box.focus();
     tick();
+    btn.hidden = true;
   } catch (err) {
-    toast(err.message);
-  } finally {
+    // Kept quiet unless asked: the photo is saved either way, and a failed
+    // reading is not a lost thought.
+    state.shot.read = false;
+    btn.hidden = false;
     btn.disabled = false;
     btn.textContent = 'Citește textul';
+    if (manual) toast(err.message);
   }
-});
+}
+
+$('shot-read').addEventListener('click', () => readShotText({ manual: true }));
 
 function clearShot() {
   if (state.shot?.objectUrl) URL.revokeObjectURL(state.shot.objectUrl);
   state.shot = null;
+  $('shot-read').hidden = true;
   $('shot-img').removeAttribute('src');
   $('shot-preview').hidden = true;
 }
