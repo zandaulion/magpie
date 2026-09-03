@@ -209,8 +209,16 @@ export async function readImageText(imageBase64, mimeType = 'image/jpeg') {
     { text: `Scrie textul care se vede în imagine, în limba în care e scris.
 
 Doar textul: fără rezumat, fără introducere, fără ghilimele în jur, fără să
-descrii imaginea. Păstrează rândurile așa cum sunt. Dacă nu se vede niciun text
-lizibil, returnează un șir gol.` }
+descrii imaginea.
+
+Scrie-l compact. Rândurile de pe un ambalaj sau un afiș sunt rupte de lățimea
+lui, nu de sens — lipește-le la loc într-un text curgător. Nu lăsa rânduri
+goale. Nu repeta același lucru în două limbi: alege una.
+
+Păstrează rândul separat doar unde chiar înseamnă ceva: elementele unei liste,
+punctele unei teme, rândurile unei rețete. În rest, un singur paragraf.
+
+Dacă nu se vede niciun text lizibil, returnează un șir gol.` }
   ], { temperature: 0, maxOutputTokens: 4096 });
 
   return { text: text.replace(/^["'“”]+|["'“”]+$/g, '').trim(), usage, model };
