@@ -25,10 +25,12 @@ async function call(parts, { temperature = 0.9, maxOutputTokens = 800, schema = 
     generationConfig: {
       temperature,
       maxOutputTokens,
-      // Reasoning tokens are drawn from maxOutputTokens, so a model left to
-      // think spends the whole budget deliberating and returns a fragment --
-      // which is exactly what happened here: every reply came back truncated
-      // mid-word. Nothing Magpie says is worth thinking about first.
+      // Reasoning tokens come out of maxOutputTokens, so a model left to think
+      // spends the budget deliberating and returns a fragment. Asking for none
+      // helps but is not honoured every time: measured over four identical
+      // calls, three used no thinking at all and one spent 382 tokens, leaving
+      // 14 for the answer and cutting it off mid-word. So the ask stays, and
+      // the budget below is wide enough to survive being ignored.
       ...(think ? {} : { thinkingConfig: { thinkingBudget: 0 } }),
       ...(schema ? { responseMimeType: 'application/json', responseSchema: schema } : {})
     }
@@ -54,8 +56,17 @@ async function call(parts, { temperature = 0.9, maxOutputTokens = 800, schema = 
   }
 
   const json = await res.json();
-  const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const candidate = json?.candidates?.[0];
+  const text = candidate?.content?.parts?.[0]?.text;
   if (!text) throw new ModelError('empty', 'Modelul n-a returnat nimic.', 502);
+
+  // A remark that stops mid-word is worse than none: it reads as the app
+  // breaking rather than as the bird being brief. Refuse it and let the caller
+  // decide, rather than storing a fragment that can never be repaired --
+  // echoes are written once and kept.
+  if (candidate.finishReason === 'MAX_TOKENS') {
+    throw new ModelError('truncated', 'Răspunsul s-a oprit la jumătate.', 502);
+  }
 
   return {
     text: text.trim(),
@@ -115,7 +126,7 @@ export async function echo(body, { wantQuestion = Math.random() < 0.45 } = {}) {
 
   const { text, usage, model } = await call(
     [{ text: `${VOICE}\n\n${shape}\n\nCe a aruncat înăuntru:\n\n${body}` }],
-    { temperature: 1.0, maxOutputTokens: 400 }
+    { temperature: 1.0, maxOutputTokens: 1500 }
   );
   // Models like to wrap a single line in quotes; it reads as a citation rather
   // than as something said.
@@ -141,7 +152,7 @@ n-au legătură. Una sau două propoziții.
 A: ${first}
 
 B: ${second}` }],
-    { temperature: 1.15, maxOutputTokens: 400 }
+    { temperature: 1.15, maxOutputTokens: 1500 }
   );
   return { text: text.replace(/^["'“”]+|["'“”]+$/g, '').trim(), usage, model };
 }
@@ -190,7 +201,7 @@ Nu descrie ce se vede. Știe ce a fotografiat — a fost acolo. Dacă în poză 
 scris de mână sau pe tablă, nu îl citi cu voce tare înapoi.
 
 ${said}` }
-  ], { temperature: 1.0, maxOutputTokens: 400 });
+  ], { temperature: 1.0, maxOutputTokens: 1500 });
 
   return { text: text.replace(/^["'“”]+|["'“”]+$/g, '').trim(), usage, model };
 }
