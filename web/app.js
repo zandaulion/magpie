@@ -395,7 +395,7 @@ function syncCollide() {
 
 async function runCollide() {
   $('collide-go').disabled = true;
-  $('collide-go').textContent = 'Ciocnesc…';
+  $('collide-label').textContent = 'Ciocnesc…';
   try {
     const out = await api('/api/collide', { method: 'POST' });
     $('collide-said').textContent = out.body;
@@ -407,7 +407,7 @@ async function runCollide() {
     toast(err.message);
   } finally {
     $('collide-go').disabled = false;
-    $('collide-go').textContent = 'Ciocnește două';
+    $('collide-label').textContent = 'Ciocnește două';
   }
 }
 

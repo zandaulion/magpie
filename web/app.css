@@ -372,16 +372,27 @@ input::placeholder, textarea::placeholder { color: var(--ink-3); }
 
 .collide-wrap { display: flex; flex-direction: column; gap: 8px; }
 
-/* A quiet pill rather than a button competing with the composer: it is a thing
-   you reach for occasionally, not the thing the screen is for. */
+/* It was a dashed outline in the faintest ink in the palette, which read as a
+   caption rather than as something you could press. Solid now, with a real
+   border and an icon, and the sheen on the icon ties it to the bird -- still
+   quieter than the send button, because it is not what the screen is for. */
 .collide-btn {
   align-self: flex-start;
-  background: transparent; color: var(--ink-3);
-  border: 1px dashed var(--line);
-  padding: 6px 13px; border-radius: 99px; font-size: .84rem;
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  padding: 10px 16px;
+  border-radius: 99px;
+  font-size: .95rem;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
 }
-.collide-btn:hover { color: var(--ink-2); border-color: var(--ink-3); }
+.collide-btn svg { color: var(--sheen); flex-shrink: 0; }
+.collide-btn:hover { border-color: var(--ink-3); background: var(--surface-2); }
+.collide-btn:active { transform: translateY(1px); }
 .collide-btn:disabled { opacity: .6; }
+@media (prefers-reduced-motion: reduce) { .collide-btn:active { transform: none; } }
 
 .collide-out {
   background: var(--surface); border: 1px solid var(--line);
