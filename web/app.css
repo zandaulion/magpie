@@ -540,3 +540,79 @@ input::placeholder, textarea::placeholder { color: var(--ink-3); }
 .scrap-ask:disabled { cursor: default; opacity: .7; }
 
 .scrap-echo.is-waiting { color: var(--ink-3); border-left-color: var(--line); }
+
+/* ----------------------------------------------------------------- stats */
+
+/* Numbers about the pile, not about the person. Nothing here is a target, so
+   nothing here is drawn as progress towards one: no rings, no bars filling
+   towards a full state, no colour that turns from bad to good. */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 4px 0 6px;
+}
+
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 11px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stat-n { color: var(--ink); font-size: 1.35rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat-l { color: var(--ink-3); font-size: .74rem; line-height: 1.25; }
+
+.stat-cap {
+  margin: 18px 0 7px;
+  color: var(--ink-3);
+  font-size: .78rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+/* Fourteen columns, one per day, gaps included -- an empty day is part of the
+   shape rather than something missing from it. */
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 68px;
+}
+
+.bar-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+
+.bar {
+  border-radius: 3px;
+  background: linear-gradient(var(--sheen), var(--sheen-2));
+  min-height: 2px;
+}
+
+.hours {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 46px;
+}
+
+.hours .hour {
+  flex: 1;
+  border-radius: 2px;
+  background: var(--ink-3);
+  min-height: 2px;
+}
+
+.hours-scale {
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink-3);
+  font-size: .62rem;
+  margin-top: 4px;
+}
+
+.stats .hint { margin-top: 14px; }
