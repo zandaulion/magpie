@@ -285,3 +285,72 @@ test('a cancelled invite stays listed and cannot register anything', async () =>
   const redeemed = await api('/api/auth/redeem', { method: 'POST', body: JSON.stringify({ code: created.code }) });
   assert.equal(redeemed.status, 400);
 });
+
+// ------------------------------------------------------------------ stats
+
+test('the pile counts itself, and a scrap can be two things at once', async () => {
+  const { auth } = await registerDevice();
+  const png = Buffer.alloc(400, 0x89).toString('base64');
+  const post = (body) => api('/api/scraps', {
+    method: 'POST', headers: auth, body: JSON.stringify(body)
+  });
+
+  await post({ body: 'doar text' });
+  await post({ body: 'text plus poză', image: png, mimeType: 'image/png' });
+  await post({ image: png, mimeType: 'image/png' });
+
+  const s = await (await api('/api/stats?tz=180', { headers: auth })).json();
+  assert.equal(s.total, 3);
+  assert.equal(s.kinds.text, 2);
+  assert.equal(s.kinds.photo, 2);
+  assert.equal(s.kinds.voice, 0);
+  // Deliberately overlapping: the middle scrap is text and a photograph, so
+  // the kinds must not be expected to add up to the total.
+  assert.ok(s.kinds.text + s.kinds.photo > s.total);
+  assert.equal(s.days, 1);
+  assert.ok(s.firstAt);
+});
+
+test('the fortnight has fourteen days in it, empty ones included', async () => {
+  const { auth } = await registerDevice();
+  await api('/api/scraps', { method: 'POST', headers: auth, body: JSON.stringify({ body: 'unul' }) });
+
+  const s = await (await api('/api/stats?tz=180', { headers: auth })).json();
+  assert.equal(s.byDay.length, 14, 'gaps are part of the shape, not missing from it');
+  assert.equal(s.byDay.filter((d) => d.n > 0).length, 1);
+  assert.equal(s.byDay[13].n, 1, 'today is the last column');
+  assert.equal(s.byHour.length, 24);
+  assert.equal(s.byHour.reduce((a, b) => a + b, 0), 1);
+});
+
+test('an empty account gets zeroes rather than an error', async () => {
+  const { auth } = await registerDevice();
+  const s = await (await api('/api/stats?tz=0', { headers: auth })).json();
+  assert.equal(s.total, 0);
+  assert.equal(s.firstAt, null);
+  assert.deepEqual(s.kinds, { text: 0, photo: 0, voice: 0 });
+});
+
+test('one account never counts another\'s scraps', async () => {
+  const a = await registerDevice('a');
+  const b = await registerDevice('b');
+  await api('/api/scraps', { method: 'POST', headers: a.auth, body: JSON.stringify({ body: 'al meu' }) });
+
+  const mine = await (await api('/api/stats?tz=180', { headers: a.auth })).json();
+  const theirs = await (await api('/api/stats?tz=180', { headers: b.auth })).json();
+  assert.equal(mine.total, 1);
+  assert.equal(theirs.total, 0);
+});
+
+test('a nonsense timezone cannot bend the query', async () => {
+  const { auth } = await registerDevice();
+  await api('/api/scraps', { method: 'POST', headers: auth, body: JSON.stringify({ body: 'unul' }) });
+
+  for (const tz of ['99999', "1'); DROP TABLE scraps;--", 'NaN', '']) {
+    const res = await api(`/api/stats?tz=${encodeURIComponent(tz)}`, { headers: auth });
+    assert.equal(res.status, 200, tz);
+    const s = await res.json();
+    assert.equal(s.total, 1, tz);
+    assert.equal(s.byDay.length, 14, tz);
+  }
+});

@@ -620,7 +620,7 @@ async function loadScraps() {
 $('open-settings').addEventListener('click', async () => {
   $('settings').hidden = false;
   openScreen('settings', () => { $('settings').hidden = true; $('link-out').hidden = true; });
-  await renderDevices();
+  await Promise.all([renderDevices(), renderStats()]);
 });
 
 $('settings-close').addEventListener('click', () => dismissScreen('settings'));
@@ -666,6 +666,78 @@ $('auto-echo').addEventListener('change', async (ev) => {
   // Cards that had no remark gain or lose their button with the setting.
   renderScraps();
 });
+
+/**
+ * What the pile adds up to.
+ *
+ * Written to describe, never to grade. No streak, no average presented as a
+ * quota, no empty day called out -- a scratchpad that can be failed stops
+ * being a place you throw things without thinking, which is the only thing
+ * this app is for.
+ *
+ * The bars carry no numbers on purpose: the shape of a fortnight is the
+ * interesting part, and a figure over each column would invite comparing them.
+ */
+async function renderStats() {
+  const box = $('stats');
+  if (!box) return;
+  try {
+    const tz = -new Date().getTimezoneOffset();
+    const s = await api(`/api/stats?tz=${tz}`);
+
+    if (!s.total) {
+      box.innerHTML = '<p class="hint">Încă nimic de numărat.</p>';
+      return;
+    }
+
+    const peak = Math.max(...s.byDay.map((d) => d.n), 1);
+    const bars = s.byDay.map((d) => `<div class="bar-col" title="${esc(d.day)}: ${d.n}">
+      <div class="bar" style="height:${d.n ? Math.max(8, (d.n / peak) * 100) : 2}%"></div>
+    </div>`).join('');
+
+    const hourPeak = Math.max(...s.byHour, 1);
+    const hours = s.byHour.map((n, h) => `<div class="hour" title="${h}:00 — ${n}"
+      style="height:${n ? Math.max(10, (n / hourPeak) * 100) : 2}%"></div>`).join('');
+
+    box.innerHTML = `
+      <div class="stat-grid">
+        ${stat(s.total, s.total === 1 ? 'fragment' : 'fragmente')}
+        ${stat(s.days, s.days === 1 ? 'zi cu ceva în ea' : 'zile cu ceva în ele')}
+        ${stat(s.kinds.text, 'scrise')}
+        ${stat(s.kinds.photo, s.kinds.photo === 1 ? 'poză' : 'poze')}
+        ${stat(s.kinds.voice, s.kinds.voice === 1 ? 'înregistrare' : 'înregistrări')}
+        ${stat(s.echoes + s.collisions, 'zise de Magpie')}
+      </div>
+
+      <p class="stat-cap">Ultimele două săptămâni</p>
+      <div class="bars">${bars}</div>
+      <div class="hours-scale"><span>acum două săptămâni</span><span>azi</span></div>
+
+      <p class="stat-cap">La ce oră îți vin</p>
+      <div class="hours">${hours}</div>
+      <div class="hours-scale"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>
+
+      <p class="hint">${esc(sinceLine(s.firstAt))}</p>`;
+  } catch (err) {
+    box.innerHTML = `<p class="hint">${esc(err.message)}</p>`;
+  }
+}
+
+function stat(value, label) {
+  return `<div class="stat"><span class="stat-n">${value}</span><span class="stat-l">${esc(label)}</span></div>`;
+}
+
+/**
+ * How long this has been going, said plainly.
+ *
+ * A date rather than a countdown: "de 34 de zile" reads as something being
+ * measured, and the point is that nothing here is.
+ */
+function sinceLine(firstAt) {
+  if (!firstAt) return '';
+  const first = new Date(firstAt);
+  return `Primul, ${first.toLocaleDateString('ro-RO', { day: 'numeric', month: 'long', year: 'numeric' })}.`;
+}
 
 $('link-device').addEventListener('click', async () => {
   try {

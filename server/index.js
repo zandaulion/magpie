@@ -189,6 +189,88 @@ app.post('/api/scraps', requireDevice, (req, res) => {
   res.status(201).json(scrapForApi(db.prepare('SELECT * FROM scraps WHERE id = ?').get(id)));
 });
 
+/**
+ * What the pile adds up to.
+ *
+ * Descriptive on purpose. There are no streaks here, no daily average dressed
+ * up as a target, and no sentence about a day being empty -- the app is for
+ * someone who already has enough things telling him he is behind, and a
+ * counter that can be failed would turn a scratchpad into another one of them.
+ * Everything below answers "what does this look like", never "how are you
+ * doing".
+ *
+ * Days and hours are bucketed in the reader's own timezone, which the client
+ * sends, because a thought at half past midnight belongs to the night it
+ * happened in and not to the UTC day it landed on.
+ */
+app.get('/api/stats', requireDevice, (req, res) => {
+  const account = req.device.account_id;
+  // Minutes east of UTC, as the client computes it. Clamped to the real range
+  // of world offsets so the value cannot be used to shift the query anywhere
+  // interesting.
+  const tz = Math.max(-840, Math.min(840, Math.trunc(Number(req.query.tz)) || 0));
+  const shift = `${tz >= 0 ? '+' : '-'}${Math.abs(tz)} minutes`;
+  const local = "datetime(created_at, ?)";
+
+  const one = (sql, ...args) => db.prepare(sql).get(account, ...args);
+
+  const total = one('SELECT COUNT(*) AS n FROM scraps WHERE account_id = ?').n;
+  if (!total) {
+    return res.json({ total: 0, kinds: { text: 0, photo: 0, voice: 0 },
+                      byDay: [], byHour: new Array(24).fill(0),
+                      echoes: 0, collisions: 0, firstAt: null, days: 0, busiest: null });
+  }
+
+  // A scrap can be more than one thing at once -- a photograph with a line
+  // typed under it is both -- so these deliberately do not sum to the total.
+  const kinds = {
+    text: one("SELECT COUNT(*) AS n FROM scraps WHERE account_id = ? AND TRIM(body) <> ''").n,
+    photo: one('SELECT COUNT(*) AS n FROM scraps WHERE account_id = ? AND image_id IS NOT NULL').n,
+    voice: one('SELECT COUNT(*) AS n FROM scraps WHERE account_id = ? AND audio_id IS NOT NULL').n
+  };
+
+  const counted = db.prepare(
+    `SELECT date(${local}) AS day, COUNT(*) AS n FROM scraps
+     WHERE account_id = ? GROUP BY day`
+  ).all(shift, account);
+  const perDay = new Map(counted.map((r) => [r.day, r.n]));
+
+  // Fourteen days ending today, gaps included. A missing day is part of the
+  // shape and is not the same thing as a day that never existed.
+  const today = new Date(Date.now() + tz * 60000);
+  const byDay = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(today);
+    d.setUTCDate(d.getUTCDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    byDay.push({ day: key, n: perDay.get(key) || 0 });
+  }
+
+  const byHour = new Array(24).fill(0);
+  for (const r of db.prepare(
+    `SELECT CAST(strftime('%H', ${local}) AS INTEGER) AS h, COUNT(*) AS n
+     FROM scraps WHERE account_id = ? GROUP BY h`
+  ).all(shift, account)) byHour[r.h] = r.n;
+
+  const busiest = counted.reduce((best, r) => (!best || r.n > best.n ? r : best), null);
+  const first = one('SELECT MIN(created_at) AS at FROM scraps WHERE account_id = ?').at;
+
+  res.json({
+    total,
+    kinds,
+    byDay,
+    byHour,
+    busiest,
+    firstAt: first,
+    // How many separate days have anything in them -- not a streak, and not
+    // out of anything.
+    days: counted.length,
+    echoes: one(`SELECT COUNT(*) AS n FROM echoes e
+                 JOIN scraps s ON s.id = e.scrap_id WHERE s.account_id = ?`).n,
+    collisions: one('SELECT COUNT(*) AS n FROM collisions WHERE account_id = ?').n
+  });
+});
+
 app.get('/api/scraps', requireDevice, (req, res) => {
   // A cursor rather than a page number: scraps only ever get added at the
   // front, so an offset would shift under a list being scrolled.
