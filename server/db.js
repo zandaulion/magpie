@@ -223,3 +223,10 @@ function addColumnIfMissing(table, column, decl) {
 // A recording, where there is one. The body then holds the transcript, which
 // is a reading of the audio rather than the thing itself.
 addColumnIfMissing('scraps', 'audio_id', 'TEXT');
+
+// Whether Magpie says something back of its own accord. Off does not mean
+// never: the remark is then asked for one card at a time. Kept on the account
+// rather than in the browser so a preference set on the phone is the same
+// preference on the laptop -- it is a decision about the app, not about a
+// device.
+addColumnIfMissing('accounts', 'auto_echo', 'INTEGER NOT NULL DEFAULT 1');
