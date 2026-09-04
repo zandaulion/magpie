@@ -65,6 +65,46 @@ test('redeeming an invite returns a recovery code exactly once', async () => {
   assert.equal(me.recoveryCode, undefined);
 });
 
+// --------------------------------------------------------------- settings
+
+test('Magpie speaks first until told otherwise', async () => {
+  const { auth } = await registerDevice();
+  const me = await (await api('/api/me', { headers: auth })).json();
+  assert.equal(me.autoEcho, true);
+});
+
+test('the setting survives the round trip and is per account', async () => {
+  const a = await registerDevice('a');
+  const b = await registerDevice('b');
+
+  const res = await api('/api/settings', {
+    method: 'PATCH', headers: a.auth, body: JSON.stringify({ autoEcho: false })
+  });
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).autoEcho, false);
+
+  assert.equal((await (await api('/api/me', { headers: a.auth })).json()).autoEcho, false);
+  // Turning it off is a decision about one person's app, not the server's.
+  assert.equal((await (await api('/api/me', { headers: b.auth })).json()).autoEcho, true);
+
+  await api('/api/settings', {
+    method: 'PATCH', headers: a.auth, body: JSON.stringify({ autoEcho: true })
+  });
+  assert.equal((await (await api('/api/me', { headers: a.auth })).json()).autoEcho, true);
+});
+
+test('the setting refuses anything that is not a yes or a no', async () => {
+  const { auth } = await registerDevice();
+  for (const body of ['{}', '{"autoEcho":"false"}', '{"autoEcho":0}']) {
+    const res = await api('/api/settings', { method: 'PATCH', headers: auth, body });
+    assert.equal(res.status, 400, body);
+  }
+  // And is not something a stranger can set.
+  assert.equal((await api('/api/settings', {
+    method: 'PATCH', body: JSON.stringify({ autoEcho: false })
+  })).status, 401);
+});
+
 // ------------------------------------------------------------------ scraps
 
 test('a scrap comes back exactly as it was thrown in', async () => {

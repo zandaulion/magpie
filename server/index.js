@@ -96,8 +96,37 @@ app.get('/api/me', requireDevice, (req, res) => {
     accountId: req.device.account_id,
     deviceId: req.device.id,
     label: req.device.label,
-    devices: listDevices(req.device.account_id)
+    devices: listDevices(req.device.account_id),
+    autoEcho: autoEchoFor(req.device.account_id)
   });
+});
+
+/**
+ * Does Magpie speak first?
+ *
+ * Read here rather than trusted from the client because it is the client that
+ * decides whether to ask, and a preference that only lives in one browser is
+ * not a preference -- it is a habit of one device.
+ */
+function autoEchoFor(accountId) {
+  const row = db.prepare('SELECT auto_echo FROM accounts WHERE id = ?').get(accountId);
+  return row?.auto_echo !== 0;
+}
+
+/**
+ * Turning it off does not disable the model, only its habit of speaking
+ * unprompted -- POST /api/scraps/:id/echo keeps working, because the button on
+ * each card is what the setting leaves behind. So there is deliberately no
+ * check for this flag in that route.
+ */
+app.patch('/api/settings', requireDevice, (req, res) => {
+  const { autoEcho } = req.body || {};
+  if (typeof autoEcho !== 'boolean') {
+    return res.status(400).json({ error: 'bad_request', message: 'autoEcho trebuie sa fie true sau false.' });
+  }
+  db.prepare('UPDATE accounts SET auto_echo = ? WHERE id = ?')
+    .run(autoEcho ? 1 : 0, req.device.account_id);
+  res.json({ autoEcho });
 });
 
 app.post('/api/devices/link-code', requireDevice, (req, res) => {

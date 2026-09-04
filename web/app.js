@@ -8,7 +8,9 @@ const state = {
   shot: null,      // { base64, mimeType, objectUrl }
   audioId: null,   // set once a recording has been transcribed
   lastCollision: null,
-  me: null
+  me: null,
+  autoEcho: true,        // overwritten by /api/me on boot
+  pendingEcho: new Set() // ids with a remark in flight, so the card shows neither
 };
 
 // ------------------------------------------------------------------- api
@@ -243,6 +245,13 @@ async function keep() {
     clearShot();
     state.scraps.unshift(scrap);
     state.total += 1;
+
+    // Marked as pending before the first render rather than inside askEcho, so
+    // the fresh card never flashes an ask button for the second or two it
+    // takes the remark to come back.
+    const willAsk = state.autoEcho && Boolean(scrap.body || scrap.imageId);
+    if (willAsk) state.pendingEcho.add(scrap.id);
+
     renderScraps({ toBottom: true });
     autoGrow();
     tick();
@@ -251,9 +260,9 @@ async function keep() {
     // app opening is the opposite case -- it is often opened to read, and a
     // keyboard covering half the screen to do that is hostile.
     $('scrap').focus();
-    // Asked for after the scrap is safely kept, so a slow or absent model
+    // Asked for only after the scrap is safely kept, so a slow or absent model
     // costs a remark and never a thought.
-    if (scrap.body || scrap.imageId) askEcho(scrap.id);
+    if (willAsk) askEcho(scrap.id);
     syncCollide();
   } catch (err) {
     toast(err.message);
@@ -275,15 +284,27 @@ function tick() {
   try { navigator.vibrate?.(12); } catch { /* not supported, no matter */ }
 }
 
+/**
+ * Ask for the one short thing said back.
+ *
+ * Called on its own after a save when Magpie is set to speak first, and from
+ * the button on a card otherwise. The route is the same either way and answers
+ * with an existing remark rather than a second one, so pressing the button on
+ * a card that already has one costs nothing.
+ */
 async function askEcho(id) {
+  state.pendingEcho.add(id);
   try {
     const { echo } = await api(`/api/scraps/${id}/echo`, { method: 'POST' });
     const scrap = state.scraps.find((s) => s.id === id);
-    if (!scrap || !echo) return;
-    scrap.echo = echo;
-    renderScraps();
+    if (scrap && echo) scrap.echo = echo;
   } catch {
     // Magpie having nothing to say is not an error worth showing anyone.
+  } finally {
+    // Rendered here rather than only on success, so a card whose remark never
+    // arrived gets its button back instead of going quiet for good.
+    state.pendingEcho.delete(id);
+    renderScraps();
   }
 }
 
@@ -488,6 +509,21 @@ function when(iso) {
   return then.toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' });
 }
 
+/**
+ * What sits under a card: the remark, or the way to ask for one.
+ *
+ * The button is offered whenever a card has none and nothing is in flight for
+ * it -- which covers both halves of the setting. With Magpie speaking first it
+ * appears only where a remark failed to arrive, and is a retry; with her quiet
+ * it is the whole of how she is asked.
+ */
+function echoSlot(s) {
+  if (s.echo) return `<p class="scrap-echo">${esc(s.echo)}</p>`;
+  if (state.pendingEcho.has(s.id)) return '<p class="scrap-echo is-waiting">se gândește…</p>';
+  if (!s.body && !s.imageId) return '';
+  return `<button class="scrap-ask" type="button" data-ask="${esc(s.id)}">Ce zici?</button>`;
+}
+
 function renderScraps({ toBottom = false } = {}) {
   const list = $('scraps');
   $('empty').hidden = state.scraps.length > 0;
@@ -502,7 +538,7 @@ function renderScraps({ toBottom = false } = {}) {
       ${s.imageId ? `<img src="/api/images/${encodeURIComponent(s.imageId)}" alt="" loading="lazy">` : ''}
       ${s.body ? `<div class="scrap-body">${esc(s.body)}</div>` : ''}
       ${s.audioId ? `<audio class="scrap-audio" controls preload="none" src="/api/audio/${encodeURIComponent(s.audioId)}"></audio>` : ''}
-      ${s.echo ? `<p class="scrap-echo">${esc(s.echo)}</p>` : ''}
+      ${echoSlot(s)}
       <div class="scrap-meta">
         <span>${esc(when(s.createdAt))}</span>
         <button class="scrap-del" type="button" data-del="${esc(s.id)}" aria-label="Șterge fragmentul">&times;</button>
@@ -530,6 +566,15 @@ function scrollToBottom(smooth = false) {
 }
 
 $('scraps').addEventListener('click', async (ev) => {
+  const ask = ev.target.closest('[data-ask]');
+  if (ask) {
+    // Swapped in place rather than through a re-render: rewriting the list
+    // would stop any recording being played further up it.
+    ask.disabled = true;
+    ask.textContent = 'se gândește…';
+    return askEcho(ask.dataset.ask);
+  }
+
   const id = ev.target.closest('[data-del]')?.dataset.del;
   if (!id) return;
   if (!confirm('Ștergi fragmentul? Nu se mai poate recupera.')) return;
@@ -584,6 +629,8 @@ async function renderDevices() {
   try {
     const me = await api('/api/me');
     state.me = me;
+    state.autoEcho = me.autoEcho !== false;
+    $('auto-echo').checked = state.autoEcho;
     $('devices').innerHTML = me.devices.map((d) => `
       <li class="device">
         <span class="device-name">${esc(d.label || 'Dispozitiv fără nume')}</span>
@@ -594,6 +641,31 @@ async function renderDevices() {
     toast(err.message);
   }
 }
+
+/**
+ * Whether Magpie speaks first.
+ *
+ * Flipped optimistically and put back if the server refuses, because a switch
+ * that waits for a round trip before moving feels broken on a slow phone. The
+ * cost of being wrong here is one wrong-looking switch for half a second.
+ */
+$('auto-echo').addEventListener('change', async (ev) => {
+  const wanted = ev.target.checked;
+  state.autoEcho = wanted;
+  try {
+    await api('/api/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ autoEcho: wanted })
+    });
+    toast(wanted ? 'Magpie răspunde singură' : 'Magpie tace până o întrebi');
+  } catch (err) {
+    state.autoEcho = !wanted;
+    ev.target.checked = !wanted;
+    toast(err.message);
+  }
+  // Cards that had no remark gain or lose their button with the setting.
+  renderScraps();
+});
 
 $('link-device').addEventListener('click', async () => {
   try {
@@ -696,7 +768,10 @@ $('gate-code').addEventListener('keydown', (ev) => {
 
 (async function boot() {
   try {
-    await api('/api/me');
+    const me = await api('/api/me');
+    state.me = me;
+    state.autoEcho = me.autoEcho !== false;
+    $('auto-echo').checked = state.autoEcho;
     $('app').hidden = false;
     await loadScraps();
   } catch {

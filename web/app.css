@@ -451,3 +451,92 @@ input::placeholder, textarea::placeholder { color: var(--ink-3); }
 }
 .photo-opt:hover { background: var(--surface-2); }
 .photo-opt svg { flex-shrink: 0; color: var(--ink-3); }
+
+/* ---------------------------------------------------------------- switch */
+
+/* The checkbox itself is kept in the layout rather than display:none'd, so it
+   still takes focus from the keyboard; it is the track that is drawn. */
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  cursor: pointer;
+}
+
+.switch-text { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.switch-title { color: var(--ink); font-size: .98rem; }
+.switch-sub { color: var(--ink-3); font-size: .84rem; line-height: 1.4; }
+
+.switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.switch-track {
+  flex: none;
+  width: 46px;
+  height: 27px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  position: relative;
+  transition: background .16s ease, border-color .16s ease;
+}
+
+.switch-track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  transition: transform .16s ease, background .16s ease;
+}
+
+.switch input:checked + .switch-track {
+  background: var(--sheen-soft);
+  border-color: var(--sheen);
+}
+
+.switch input:checked + .switch-track::after {
+  transform: translateX(19px);
+  background: var(--sheen);
+}
+
+.switch input:focus-visible + .switch-track {
+  outline: 2px solid var(--sheen);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch-track, .switch-track::after { transition: none; }
+}
+
+/* ------------------------------------------------------------ asking her */
+
+/* Deliberately quieter than anything in the composer: it is an offer on a card
+   you have already finished with, not a step in throwing something in. */
+.scrap-ask {
+  align-self: flex-start;
+  margin-top: 2px;
+  /* Bigger than it looks like it needs to be: it is a thumb target on a phone,
+     and a 32px pill is a miss waiting to happen. */
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: .84rem;
+  cursor: pointer;
+}
+
+.scrap-ask:hover:not(:disabled) { color: var(--ink-2); border-color: var(--ink-3); }
+.scrap-ask:disabled { cursor: default; opacity: .7; }
+
+.scrap-echo.is-waiting { color: var(--ink-3); border-left-color: var(--line); }
