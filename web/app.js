@@ -10,7 +10,8 @@ const state = {
   lastCollision: null,
   me: null,
   autoEcho: true,        // overwritten by /api/me on boot
-  pendingEcho: new Set() // ids with a remark in flight, so the card shows neither
+  pendingEcho: new Set(), // ids with a remark in flight, so the card shows neither
+  pendingNear: new Set()  // ids whose neighbours are being looked up
 };
 
 // ------------------------------------------------------------------- api
@@ -292,6 +293,31 @@ function tick() {
  * with an existing remark rather than a second one, so pressing the button on
  * a card that already has one costs nothing.
  */
+/**
+ * What else you have written that sits near this one.
+ *
+ * No budget call and no charge: the vectors were paid for when each scrap was
+ * saved, so this is arithmetic. Asked for on demand rather than on every
+ * render, because forty cards each pulling their own neighbours would be forty
+ * requests for something most cards are never expanded to show.
+ */
+async function askNear(id) {
+  state.pendingNear.add(id);
+  renderScraps();
+  try {
+    const { near } = await api(`/api/scraps/${id}/near`);
+    const scrap = state.scraps.find((s) => s.id === id);
+    if (scrap) scrap.near = near || [];
+  } catch {
+    const scrap = state.scraps.find((s) => s.id === id);
+    // An empty list rather than nothing, so the card can say it looked.
+    if (scrap) scrap.near = [];
+  } finally {
+    state.pendingNear.delete(id);
+    renderScraps();
+  }
+}
+
 async function askEcho(id) {
   state.pendingEcho.add(id);
   try {
@@ -517,6 +543,19 @@ function when(iso) {
  * appears only where a remark failed to arrive, and is a retry; with her quiet
  * it is the whole of how she is asked.
  */
+/** The near ones, once they have been asked for. */
+function nearSlot(s) {
+  if (state.pendingNear.has(s.id)) return '<p class="scrap-near is-waiting">caută…</p>';
+  if (!Array.isArray(s.near)) return '';
+  if (!s.near.length) return '<p class="scrap-near is-empty">Nimic apropiat, deocamdată.</p>';
+
+  return `<ul class="scrap-near">${s.near.map((n) => `
+    <li>
+      <span class="near-when">${esc(when(n.createdAt))}</span>
+      <span class="near-body">${esc((n.body || '').slice(0, 140))}</span>
+    </li>`).join('')}</ul>`;
+}
+
 function echoSlot(s) {
   if (s.echo) return `<p class="scrap-echo">${esc(s.echo)}</p>`;
   if (state.pendingEcho.has(s.id)) return '<p class="scrap-echo is-waiting">se gândește…</p>';
@@ -539,8 +578,11 @@ function renderScraps({ toBottom = false } = {}) {
       ${s.body ? `<div class="scrap-body">${esc(s.body)}</div>` : ''}
       ${s.audioId ? `<audio class="scrap-audio" controls preload="none" src="/api/audio/${encodeURIComponent(s.audioId)}"></audio>` : ''}
       ${echoSlot(s)}
+      ${nearSlot(s)}
       <div class="scrap-meta">
         <span>${esc(when(s.createdAt))}</span>
+        <button class="scrap-near-btn" type="button" data-near="${esc(s.id)}"
+                aria-label="Ce seamănă cu asta">Ce seamănă?</button>
         <button class="scrap-del" type="button" data-del="${esc(s.id)}" aria-label="Șterge fragmentul">&times;</button>
       </div>
     </li>`).join('');
@@ -574,6 +616,9 @@ $('scraps').addEventListener('click', async (ev) => {
     ask.textContent = 'se gândește…';
     return askEcho(ask.dataset.ask);
   }
+
+  const near = ev.target.closest('[data-near]');
+  if (near) return askNear(near.dataset.near);
 
   const id = ev.target.closest('[data-del]')?.dataset.del;
   if (!id) return;
