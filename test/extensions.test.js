@@ -45,3 +45,30 @@ test('the model that wrote a reading is recorded, and not wiped by an edit', () 
   assert.ok(!/model\s*=/.test(edit),
     'an edit must leave the model name alone, so where it started stays knowable');
 });
+
+/**
+ * The prompt used to contain two clauses that between them made silence a
+ * legal answer -- "say less" and "say so briefly and stop". On one real topic
+ * the model took that exit every time: six calls, zero output tokens, an
+ * opaque 502, and the budget charged for each attempt.
+ */
+test('the extension prompt never permits an empty answer', () => {
+  const gemini = readFileSync(new URL('../server/gemini.js', import.meta.url), 'utf8');
+  const prompt = gemini.slice(gemini.indexOf('export async function extend'));
+
+  assert.ok(/Un răspuns\s*\n?\s*gol nu e o opțiune|răspuns gol nu e o opțiune/.test(prompt),
+    'the prompt must state outright that an empty answer is not an option');
+  assert.ok(!/oprește-te/.test(prompt),
+    '"stop" gives the model a way to answer with nothing at all');
+  assert.ok(/Nu inventa un fir care nu e acolo/.test(prompt),
+    'but it must still refuse to invent a thread that is not there');
+});
+
+test('a call that returns nothing is refunded', () => {
+  const index = readFileSync(new URL('../server/index.js', import.meta.url), 'utf8');
+  const route = index.slice(index.indexOf("app.post('/api/topics/:id/extend'"),
+                            index.indexOf("app.patch('/api/extensions/:id'"));
+  assert.ok(/err\.code === 'empty'/.test(route) && /refund\(/.test(route),
+    'an empty answer must refund: otherwise a topic that never answers can '
+    + 'drain a daily budget one attempt at a time');
+});

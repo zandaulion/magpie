@@ -524,6 +524,19 @@ app.post('/api/topics/:id/extend', requireDevice, asyncRoute(async (req, res) =>
     out = await extend(topic.name, topic.scraps.map((s) => s.body));
   } catch (err) {
     if (err.status === 503 || err.status === 429) refund(req.device.account_id);
+    // A call that came back with nothing has to be refunded too. It happened
+    // on real content -- a topic the model would not write about, silently and
+    // every time -- and without this a budget could be spent to a standstill
+    // on a topic that will never answer. Reported plainly rather than as a
+    // 502, because nothing is broken: Magpie had nothing to say.
+    if (err.code === 'empty' || err.code === 'truncated') {
+      refund(req.device.account_id);
+      return res.status(200).json({
+        extension: null,
+        nothingToSay: true,
+        message: 'Magpie n-a avut nimic de spus despre asta. Mai încearcă după ce mai arunci câteva.'
+      });
+    }
     throw err;
   }
 
