@@ -13,7 +13,8 @@ import { fileURLToPath } from 'node:url';
 import { db, nowIso, IMAGE_DIR, AUDIO_DIR } from './db.js';
 import { swVersion } from './serve-sw.js';
 import {
-  echo, collide, transcribe, look, readImageText, nameTopic, isConfigured, ModelError
+  echo, collide, transcribe, look, readImageText, nameTopic, extend,
+  isConfigured, ModelError
 } from './gemini.js';
 import { charge, refund, BudgetError } from './budget.js';
 import {
@@ -22,6 +23,9 @@ import {
 import {
   reconcileTopics, listTopics, topicScraps, renameTopic, applySuggestedName, MIN_TOPIC_SIZE
 } from './topics.js';
+import {
+  listExtensions, addExtension, editExtension, deleteExtension
+} from './extensions.js';
 import {
   COOKIE_NAME, requireDevice, requireAdmin, setTokenCookie,
   createInvite, listInvites, revokeInvite, redeemInvite,
@@ -495,6 +499,58 @@ app.post('/api/topics/:id/name', requireDevice, asyncRoute(async (req, res) => {
   const name = applySuggestedName(req.device.account_id, req.params.id, out.name);
   res.json({ id: req.params.id, name: name || topic.name, namedByUser: false });
 }));
+
+/** What has been written about a topic, Magpie's and yours alike. */
+app.get('/api/topics/:id/extensions', requireDevice, (req, res) => {
+  const list = listExtensions(req.device.account_id, req.params.id);
+  if (!list) return res.status(404).json({ error: 'not_found' });
+  res.json({ extensions: list });
+});
+
+/**
+ * Ask Magpie to read the topic.
+ *
+ * Always adds; never replaces. A second reading sits beside the first rather
+ * than over it, which is what makes it safe to edit one -- and the reason it
+ * is worth asking twice at all, since the two will not agree.
+ */
+app.post('/api/topics/:id/extend', requireDevice, asyncRoute(async (req, res) => {
+  const topic = topicScraps(req.device.account_id, req.params.id);
+  if (!topic) return res.status(404).json({ error: 'not_found' });
+
+  charge(req.device.account_id);
+  let out;
+  try {
+    out = await extend(topic.name, topic.scraps.map((s) => s.body));
+  } catch (err) {
+    if (err.status === 503 || err.status === 429) refund(req.device.account_id);
+    throw err;
+  }
+
+  const saved = addExtension(req.device.account_id, req.params.id, out.text, out.model);
+  if (!saved) return res.status(502).json({ error: 'unreadable' });
+  res.status(201).json({ extension: saved });
+}));
+
+/**
+ * Your words now.
+ *
+ * The edit is what flips `mine`, and nothing ever flips it back: once someone
+ * has been in there, the row stops being the model's however much of the
+ * original survives.
+ */
+app.patch('/api/extensions/:id', requireDevice, (req, res) => {
+  const saved = editExtension(req.device.account_id, req.params.id, req.body?.body);
+  if (!saved) return res.status(404).json({ error: 'not_found' });
+  res.json({ extension: saved });
+});
+
+app.delete('/api/extensions/:id', requireDevice, (req, res) => {
+  if (!deleteExtension(req.device.account_id, req.params.id)) {
+    return res.status(404).json({ error: 'not_found' });
+  }
+  res.status(204).end();
+});
 
 /**
  * Two scraps, knocked together.
