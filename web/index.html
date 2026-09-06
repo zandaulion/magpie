@@ -53,6 +53,14 @@
     <img class="mark" src="/icons/icon.svg" alt="" width="28" height="28">
     <h1>Magpie</h1>
     <span id="scrap-count" class="count" aria-label="fragmente"></span>
+    <button id="open-topics" class="icon-btn" type="button" aria-label="Teme">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+           stroke-width="1.8" stroke-linecap="round">
+        <circle cx="6" cy="7" r="2.4"/><circle cx="17" cy="6" r="2.4"/>
+        <circle cx="12" cy="17" r="2.4"/>
+        <path d="M8.2 8.2 10.4 15M15.4 8.1 13 15"/>
+      </svg>
+    </button>
     <button id="open-settings" class="icon-btn" type="button" aria-label="Setări">
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8">
         <circle cx="12" cy="12" r="3.2"/>
@@ -74,7 +82,22 @@
     <ul id="scraps" class="scraps"></ul>
   </div>
 
-  <div class="composer">
+  <!-- Teme: what the pile keeps coming back to. A sheet rather than a second
+     screen, because it is somewhere you visit and leave, not somewhere you
+     work. -->
+<div id="topics-sheet" class="sheet" hidden>
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2>Teme</h2>
+      <button id="topics-close" class="icon-btn" type="button" aria-label="Închide">&times;</button>
+    </header>
+    <p class="sheet-lead">Ce revine în ce ai aruncat. Numele îl poți schimba oricând.</p>
+    <div id="topics-list" class="topics"></div>
+    <button id="topics-recluster" class="ghost wide" type="button">Caută din nou</button>
+  </div>
+</div>
+
+<div class="composer">
     <div id="collide-wrap" class="collide-wrap" hidden>
       <div id="collide-out" class="collide-out" hidden>
         <p id="collide-said" class="collide-said"></p>

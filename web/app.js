@@ -670,6 +670,101 @@ $('open-settings').addEventListener('click', async () => {
 
 $('settings-close').addEventListener('click', () => dismissScreen('settings'));
 
+// ----------------------------------------------------------------- teme
+
+$('open-topics').addEventListener('click', async () => {
+  $('topics-sheet').hidden = false;
+  openScreen('topics', () => { $('topics-sheet').hidden = true; });
+  await renderTopics();
+});
+
+$('topics-close').addEventListener('click', () => dismissScreen('topics'));
+
+$('topics-recluster').addEventListener('click', async () => {
+  const btn = $('topics-recluster');
+  btn.disabled = true;
+  btn.textContent = 'caută…';
+  try {
+    // Free: clustering is arithmetic over vectors already paid for.
+    const out = await api('/api/topics/recluster', { method: 'POST' });
+    paintTopics(out.topics);
+  } catch {
+    $('topics-list').innerHTML = '<p class="topics-empty">Nu am putut căuta acum.</p>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Caută din nou';
+  }
+});
+
+async function renderTopics() {
+  $('topics-list').innerHTML = '<p class="topics-empty">se uită…</p>';
+  try {
+    const { topics, minSize } = await api('/api/topics');
+    paintTopics(topics, minSize);
+  } catch {
+    $('topics-list').innerHTML = '<p class="topics-empty">Nu am putut încărca temele.</p>';
+  }
+}
+
+function paintTopics(topics, minSize = 3) {
+  const list = $('topics-list');
+  if (!topics || !topics.length) {
+    // Said plainly rather than shown as an empty list: with too few scraps
+    // there is nothing honest to cluster, and that is worth saying.
+    list.innerHTML = `<p class="topics-empty">
+      Încă nu se adună nimic. O temă are nevoie de cel puțin ${minSize} fragmente
+      care seamănă între ele.</p>`;
+    return;
+  }
+
+  list.innerHTML = topics.map((t) => `
+    <section class="topic" data-topic="${esc(t.id)}">
+      <header class="topic-head">
+        <h3 class="topic-name">${esc(t.name)}</h3>
+        <span class="topic-size">${t.size}</span>
+      </header>
+      <ul class="topic-scraps">
+        ${t.scraps.map((s) => `<li>${esc((s.body || '').slice(0, 90))}</li>`).join('')}
+      </ul>
+      <div class="topic-acts">
+        <button type="button" class="link-btn" data-rename="${esc(t.id)}">Redenumește</button>
+        ${t.namedByUser
+          ? '<span class="topic-mine">numele tău</span>'
+          : `<button type="button" class="link-btn" data-suggest="${esc(t.id)}">Cere un nume</button>`}
+      </div>
+    </section>`).join('');
+}
+
+$('topics-list').addEventListener('click', async (ev) => {
+  const rename = ev.target.closest('[data-rename]');
+  if (rename) {
+    const card = rename.closest('.topic');
+    const current = card.querySelector('.topic-name').textContent;
+    const name = prompt('Cum îi spui?', current);
+    if (!name || name.trim() === current) return;
+    try {
+      await api(`/api/topics/${rename.dataset.rename}`, {
+        method: 'PATCH', body: JSON.stringify({ name })
+      });
+      await renderTopics();
+    } catch { /* the list is still correct; nothing to undo */ }
+    return;
+  }
+
+  const suggest = ev.target.closest('[data-suggest]');
+  if (!suggest) return;
+  suggest.disabled = true;
+  suggest.textContent = 'se gândește…';
+  try {
+    // The only part of topics that reaches a model, so the only part charged.
+    await api(`/api/topics/${suggest.dataset.suggest}/name`, { method: 'POST' });
+    await renderTopics();
+  } catch {
+    suggest.disabled = false;
+    suggest.textContent = 'Cere un nume';
+  }
+});
+
 async function renderDevices() {
   try {
     const me = await api('/api/me');

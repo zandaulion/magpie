@@ -665,3 +665,88 @@ p.scrap-near {
 }
 
 p.scrap-near.is-waiting { font-style: italic; }
+
+/* ---------------------------------------------------------------- teme */
+
+/*
+ * The topics sheet scrolls, unlike the settings one: a pile that has been
+ * going a while has more topics than fit, and place-items: center would put
+ * the middle of a long list on screen and cut both ends off.
+ */
+#topics-sheet { place-items: start center; overflow-y: auto; }
+#topics-sheet .sheet-inner { width: 100%; max-width: 520px; }
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sheet-lead { margin: 2px 0 16px; font-size: 0.86rem; }
+
+.topics { display: grid; gap: 14px; margin-bottom: 18px; }
+
+.topic {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card, transparent);
+}
+
+.topic-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.topic-name { margin: 0; font-size: 1rem; font-weight: 700; }
+
+.topic-size {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--line);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+/* A few of its scraps, so the name can be judged against what is under it. */
+.topic-scraps {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.topic-scraps li {
+  font-size: 0.8rem;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topic-acts { display: flex; align-items: center; gap: 14px; }
+
+.link-btn {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.78rem;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.link-btn:hover { color: var(--ink); }
+.link-btn[disabled] { opacity: 0.6; cursor: default; }
+
+.topic-mine { font-size: 0.74rem; color: var(--ink-2); font-style: italic; }
+
+.topics-empty { color: var(--ink-2); font-size: 0.86rem; line-height: 1.6; }
