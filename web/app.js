@@ -731,11 +731,98 @@ function paintTopics(topics, minSize = 3) {
         ${t.namedByUser
           ? '<span class="topic-mine">numele tău</span>'
           : `<button type="button" class="link-btn" data-suggest="${esc(t.id)}">Cere un nume</button>`}
+        <button type="button" class="link-btn" data-extend="${esc(t.id)}">Ce vezi aici?</button>
       </div>
+      <div class="topic-ext" data-ext-for="${esc(t.id)}"></div>
     </section>`).join('');
+
+  // After the markup exists, so the hosts are there to paint into. Fetched per
+  // topic rather than joined into /api/topics: most topics have no readings,
+  // and the list should not wait on a query for rows usually absent.
+  topics.forEach((t) => loadExtensions(t.id));
+}
+
+/**
+ * Everything written about a topic.
+ *
+ * Magpie's readings and the person's edits sit in the same list, distinguished
+ * rather than separated -- keeping them apart in two columns would make the
+ * page about provenance, and keeping them identical would lose it entirely.
+ */
+function paintExtensions(topicId, extensions) {
+  const host = document.querySelector(`[data-ext-for="${topicId}"]`);
+  if (!host) return;
+
+  if (!extensions.length) { host.innerHTML = ''; return; }
+
+  host.innerHTML = extensions.map((e) => `
+    <article class="ext${e.mine ? ' is-mine' : ''}" data-ext="${esc(e.id)}">
+      <p class="ext-body">${esc(e.body)}</p>
+      <div class="ext-foot">
+        <span class="ext-who">${e.mine ? 'al tău' : 'Magpie'}</span>
+        <button type="button" class="link-btn" data-ext-edit="${esc(e.id)}">Scrie tu</button>
+        <button type="button" class="link-btn" data-ext-del="${esc(e.id)}">Șterge</button>
+      </div>
+    </article>`).join('');
+}
+
+async function loadExtensions(topicId) {
+  try {
+    const { extensions } = await api(`/api/topics/${topicId}/extensions`);
+    paintExtensions(topicId, extensions);
+  } catch { /* the topic itself is still readable without them */ }
 }
 
 $('topics-list').addEventListener('click', async (ev) => {
+  const extend = ev.target.closest('[data-extend]');
+  if (extend) {
+    extend.disabled = true;
+    extend.textContent = 'se uită…';
+    try {
+      // Charged: this is the one part of topics that reaches a model. It adds
+      // a reading rather than replacing the last one.
+      await api(`/api/topics/${extend.dataset.extend}/extend`, { method: 'POST' });
+      await loadExtensions(extend.dataset.extend);
+    } catch (err) {
+      toast(err.message || 'Nu a ieșit nimic acum.');
+    } finally {
+      extend.disabled = false;
+      extend.textContent = 'Ce vezi aici?';
+    }
+    return;
+  }
+
+  const edit = ev.target.closest('[data-ext-edit]');
+  if (edit) {
+    const card = edit.closest('.ext');
+    const current = card.querySelector('.ext-body').textContent;
+    const next = prompt('Scrie-l cum vrei tu:', current);
+    if (next === null || next.trim() === current.trim()) return;
+    try {
+      // Editing is what makes it yours; a later regeneration will sit beside
+      // it rather than over it.
+      await api(`/api/extensions/${edit.dataset.extEdit}`, {
+        method: 'PATCH', body: JSON.stringify({ body: next })
+      });
+      await loadExtensions(card.closest('.topic').dataset.topic);
+    } catch (err) {
+      toast(err.message || 'Nu am putut salva.');
+    }
+    return;
+  }
+
+  const del = ev.target.closest('[data-ext-del]');
+  if (del) {
+    const card = del.closest('.ext');
+    if (card.classList.contains('is-mine')
+        && !confirm('E scris de tine. Îl ștergi?')) return;
+    try {
+      await api(`/api/extensions/${del.dataset.extDel}`, { method: 'DELETE' });
+      await loadExtensions(card.closest('.topic').dataset.topic);
+    } catch { /* nothing to undo */ }
+    return;
+  }
+
   const rename = ev.target.closest('[data-rename]');
   if (rename) {
     const card = rename.closest('.topic');

@@ -333,3 +333,57 @@ ${sample}`
     model
   };
 }
+
+/**
+ * Magpie's reading of a topic.
+ *
+ * The one piece of its writing meant to be kept, so it is the one that gets
+ * more than a sentence. Everything else Magpie says is disposable -- an echo
+ * can be deleted and nothing is lost -- but an extension is something a person
+ * may edit and make theirs, which changes what it has to be worth.
+ *
+ * The hard rule is the same one VOICE carries and it matters more here than
+ * anywhere: this must not be a summary. Handed a cluster of somebody's own
+ * scraps, a model's instinct is to hand them back tidied up, and being told
+ * what you already wrote is worse than being told nothing. So the ask is for
+ * the thing the scraps are circling and have not said.
+ */
+export async function extend(topicName, bodies) {
+  const sample = bodies
+    .slice(0, 20)
+    .map((b) => `- ${String(b).replace(/\s+/g, ' ').slice(0, 400)}`)
+    .join('\n');
+
+  const { text, usage, model } = await call(
+    [{
+      text: `Ești Magpie: o coțofană care adună ce e interesant din ce arunci
+spre ea. Seacă, piezișă, deloc entuziastă. Nu ești antrenor și nu suni ca unul.
+
+Scrii în română, cu "tu".
+
+Fragmentele de mai jos sunt scrise de aceeași persoană, în timp, și par să fie
+despre același lucru: "${topicName}".
+
+Scrie ce se învârte în jurul lor și nu s-a spus încă. Lucrul care leagă
+fragmentele fără să apară în niciunul. Sau contradicția dintre două dintre ele,
+dacă e una.
+
+Reguli pe care nu le încalci:
+  - Nu rezuma. Știe ce a scris. Dacă tot ce ai de spus e ce scrie deja acolo,
+    spune mai puțin.
+  - Trei-cinci propoziții. Un singur paragraf.
+  - Fără sfaturi, fără pași următori, fără productivitate, obiective sau felul
+    în care gândește.
+  - Fără laude, fără emoji, fără semne de exclamare.
+  - Dacă fragmentele nu se leagă cu adevărat, spune asta scurt și oprește-te.
+    Nu inventa un fir care nu e acolo.
+
+Fragmentele:
+
+${sample}`
+    }],
+    { temperature: 0.95, maxOutputTokens: 1600 }
+  );
+
+  return { text: text.trim(), usage, model };
+}
