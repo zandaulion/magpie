@@ -781,8 +781,10 @@ $('topics-list').addEventListener('click', async (ev) => {
     try {
       // Charged: this is the one part of topics that reaches a model. It adds
       // a reading rather than replacing the last one.
-      await api(`/api/topics/${extend.dataset.extend}/extend`, { method: 'POST' });
-      await loadExtensions(extend.dataset.extend);
+      const out = await api(`/api/topics/${extend.dataset.extend}/extend`, { method: 'POST' });
+      // Not an error, and not charged: sometimes there is nothing to say.
+      if (out?.nothingToSay) toast(out.message);
+      else await loadExtensions(extend.dataset.extend);
     } catch (err) {
       toast(err.message || 'Nu a ieșit nimic acum.');
     } finally {

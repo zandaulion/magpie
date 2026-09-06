@@ -369,14 +369,14 @@ fragmentele fără să apară în niciunul. Sau contradicția dintre două dintr
 dacă e una.
 
 Reguli pe care nu le încalci:
-  - Nu rezuma. Știe ce a scris. Dacă tot ce ai de spus e ce scrie deja acolo,
-    spune mai puțin.
-  - Trei-cinci propoziții. Un singur paragraf.
+  - Nu rezuma. Știe ce a scris.
+  - Două-cinci propoziții. Un singur paragraf. Scrii mereu ceva: chiar dacă
+    fragmentele nu se leagă între ele, spui asta într-o propoziție. Un răspuns
+    gol nu e o opțiune.
+  - Nu inventa un fir care nu e acolo.
   - Fără sfaturi, fără pași următori, fără productivitate, obiective sau felul
     în care gândește.
   - Fără laude, fără emoji, fără semne de exclamare.
-  - Dacă fragmentele nu se leagă cu adevărat, spune asta scurt și oprește-te.
-    Nu inventa un fir care nu e acolo.
 
 Fragmentele:
 
