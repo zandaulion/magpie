@@ -683,30 +683,44 @@ $('topics-close').addEventListener('click', () => dismissScreen('topics'));
 $('topics-recluster').addEventListener('click', async () => {
   const btn = $('topics-recluster');
   btn.disabled = true;
-  btn.textContent = 'caută…';
+  $('regroup-label').textContent = 'se uită…';
+  $('regroup-since').hidden = true;
   try {
-    // Free: clustering is arithmetic over vectors already paid for.
+    // Free: clustering is arithmetic over vectors already paid for. Nothing
+    // regroups on its own -- topics shifting under someone reading them is
+    // exactly the confusion this is meant to avoid -- so this is the way.
     const out = await api('/api/topics/recluster', { method: 'POST' });
-    paintTopics(out.topics);
+    paintTopics(out.topics, out.minSize, out.sinceGrouping);
   } catch {
-    $('topics-list').innerHTML = '<p class="topics-empty">Nu am putut căuta acum.</p>';
+    $('topics-list').innerHTML = '<p class="topics-empty">Nu am putut grupa acum.</p>';
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Caută din nou';
+    $('regroup-label').textContent = 'Grupează din nou';
   }
 });
+
+/** Says whether regrouping would have anything new to work with. */
+function paintRegroup(since) {
+  const el = $('regroup-since');
+  if (!since) { el.hidden = true; return; }
+  el.hidden = false;
+  el.textContent = since === 1
+    ? '1 fragment nou'
+    : `${since} fragmente noi`;
+}
 
 async function renderTopics() {
   $('topics-list').innerHTML = '<p class="topics-empty">se uită…</p>';
   try {
-    const { topics, minSize } = await api('/api/topics');
-    paintTopics(topics, minSize);
+    const { topics, minSize, sinceGrouping } = await api('/api/topics');
+    paintTopics(topics, minSize, sinceGrouping);
   } catch {
     $('topics-list').innerHTML = '<p class="topics-empty">Nu am putut încărca temele.</p>';
   }
 }
 
-function paintTopics(topics, minSize = 3) {
+function paintTopics(topics, minSize = 3, sinceGrouping = 0) {
+  paintRegroup(sinceGrouping);
   const list = $('topics-list');
   if (!topics || !topics.length) {
     // Said plainly rather than shown as an empty list: with too few scraps

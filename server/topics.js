@@ -281,6 +281,27 @@ export function listTopics(accountId, { members = 4 } = {}) {
   }));
 }
 
+/**
+ * How many scraps have arrived since the topics were last worked out.
+ *
+ * The useful signal, and not the same as "scraps in no topic": most piles have
+ * plenty of one-offs that will never join anything, since a topic needs three
+ * that cohere. Counting those would show a large number that never goes down
+ * however often you regroup, which teaches people to ignore it.
+ */
+export function scrapsSinceGrouping(accountId) {
+  const last = db.prepare('SELECT MAX(updated_at) AS at FROM topics WHERE account_id = ?')
+    .get(accountId)?.at;
+  if (!last) {
+    return db.prepare("SELECT COUNT(*) AS c FROM scraps WHERE account_id = ? AND TRIM(body) != ''")
+      .get(accountId).c;
+  }
+  return db.prepare(`
+    SELECT COUNT(*) AS c FROM scraps
+    WHERE account_id = ? AND TRIM(body) != '' AND created_at > ?
+  `).get(accountId, last).c;
+}
+
 /** Everything in one topic, for naming it or reading it back. */
 export function topicScraps(accountId, topicId, { limit = 30 } = {}) {
   const owned = db.prepare('SELECT id, name, named_by_user FROM topics WHERE id = ? AND account_id = ?')
