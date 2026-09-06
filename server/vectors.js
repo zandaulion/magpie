@@ -111,7 +111,7 @@ export const NEAR_THRESHOLD = 0.30;
 export const MIN_CORPUS = 15;
 
 /** Unit-normalised dot product. */
-function cosine(a, b) {
+export function cosine(a, b) {
   let dot = 0;
   let na = 0;
   let nb = 0;
@@ -125,7 +125,7 @@ function cosine(a, b) {
 }
 
 /** Every vector with the corpus mean removed. */
-function centre(rows) {
+export function centre(rows) {
   const dims = rows[0].values.length;
   const mean = new Float64Array(dims);
   for (const r of rows) {
@@ -135,6 +135,19 @@ function centre(rows) {
     ...r,
     centred: Float64Array.from(r.values, (v, i) => v - mean[i])
   }));
+}
+
+/**
+ * The account's vectors, mean removed, or null when there is not enough pile.
+ *
+ * The single entry point for anything that compares scraps -- connections and
+ * clustering both -- so the centring and the corpus floor cannot drift apart
+ * between them.
+ */
+export function centredCorpus(accountId) {
+  const loaded = loadVectors(accountId);
+  if (loaded.length < MIN_CORPUS) return null;
+  return centre(loaded);
 }
 
 function loadVectors(accountId) {

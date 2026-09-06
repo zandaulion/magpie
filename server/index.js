@@ -12,11 +12,16 @@ import { fileURLToPath } from 'node:url';
 
 import { db, nowIso, IMAGE_DIR, AUDIO_DIR } from './db.js';
 import { swVersion } from './serve-sw.js';
-import { echo, collide, transcribe, look, readImageText, isConfigured, ModelError } from './gemini.js';
+import {
+  echo, collide, transcribe, look, readImageText, nameTopic, isConfigured, ModelError
+} from './gemini.js';
 import { charge, refund, BudgetError } from './budget.js';
 import {
   rememberScrap, backfillEmbeddings, neighboursOf, nearestPair, coverage
 } from './vectors.js';
+import {
+  reconcileTopics, listTopics, topicScraps, renameTopic, applySuggestedName, MIN_TOPIC_SIZE
+} from './topics.js';
 import {
   COOKIE_NAME, requireDevice, requireAdmin, setTokenCookie,
   createInvite, listInvites, revokeInvite, redeemInvite,
@@ -424,6 +429,71 @@ app.post('/api/embeddings/backfill', requireDevice, asyncRoute(async (req, res) 
   // substrate, and rationing it would ration the thing the app is for.
   const result = await backfillEmbeddings(req.device.account_id);
   res.json({ ...result, coverage: coverage(req.device.account_id) });
+}));
+
+/**
+ * What the pile keeps coming back to.
+ *
+ * Reads what is already stored rather than re-clustering, so opening the list
+ * is instant and does not quietly rearrange itself under whoever is reading
+ * it. Clustering is a thing you ask for, below.
+ */
+app.get('/api/topics', requireDevice, (req, res) => {
+  res.json({
+    topics: listTopics(req.device.account_id),
+    minSize: MIN_TOPIC_SIZE,
+    coverage: coverage(req.device.account_id)
+  });
+});
+
+/**
+ * Look again.
+ *
+ * Free: clustering is arithmetic over vectors already paid for. A topic that
+ * substantially overlaps one that exists keeps its id and its name; only a
+ * genuinely new grouping makes a new row.
+ */
+app.post('/api/topics/recluster', requireDevice, (req, res) => {
+  const summary = reconcileTopics(req.device.account_id);
+  res.json({ ...summary, topics: listTopics(req.device.account_id) });
+});
+
+/** A name the person typed. */
+app.patch('/api/topics/:id', requireDevice, (req, res) => {
+  const name = renameTopic(req.device.account_id, req.params.id, req.body?.name);
+  if (!name) return res.status(400).json({ error: 'bad_name' });
+  res.json({ id: req.params.id, name, namedByUser: true });
+});
+
+/**
+ * Ask Magpie what to call it.
+ *
+ * Charged, unlike everything else about topics, because it is the only part
+ * that reaches a model. Refuses on a topic that already has a name someone
+ * typed: a suggestion never overwrites a person's own word for their own
+ * subject.
+ */
+app.post('/api/topics/:id/name', requireDevice, asyncRoute(async (req, res) => {
+  const topic = topicScraps(req.device.account_id, req.params.id);
+  if (!topic) return res.status(404).json({ error: 'not_found' });
+  if (topic.named_by_user) {
+    return res.status(409).json({
+      error: 'already_named',
+      message: 'I-ai dat deja un nume. Schimbă-l tu dacă nu mai e bun.'
+    });
+  }
+
+  charge(req.device.account_id);
+  let out;
+  try {
+    out = await nameTopic(topic.scraps.map((s) => s.body));
+  } catch (err) {
+    if (err.status === 503 || err.status === 429) refund(req.device.account_id);
+    throw err;
+  }
+
+  const name = applySuggestedName(req.device.account_id, req.params.id, out.name);
+  res.json({ id: req.params.id, name: name || topic.name, namedByUser: false });
 }));
 
 /**

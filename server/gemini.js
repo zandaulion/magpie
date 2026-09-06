@@ -290,3 +290,46 @@ export async function embed(text) {
   }
   return values;
 }
+
+/**
+ * A name for a group of scraps.
+ *
+ * Not in Magpie's voice, deliberately. The remarks and collisions are Magpie
+ * talking; a topic name is a label the person has to live with in a list, and
+ * a dry aside makes a bad label. So this one asks for plain words and nothing
+ * else -- and it is only ever a suggestion, never applied over a name someone
+ * typed themselves.
+ */
+export async function nameTopic(bodies) {
+  const sample = bodies
+    .slice(0, 12)
+    .map((b) => `- ${String(b).replace(/\s+/g, ' ').slice(0, 200)}`)
+    .join('\n');
+
+  const { text, usage, model } = await call(
+    [{
+      text: `Următoarele fragmente au fost scrise de aceeași persoană și par să
+fie despre același lucru. Dă-le un nume scurt, în română.
+
+Reguli:
+  - Două-patru cuvinte. Un substantiv sau o sintagmă, nu o propoziție.
+  - Descriptiv și simplu. Numele stă într-o listă și trebuie recunoscut dintr-o
+    privire.
+  - Fără ghilimele, fără punct final, fără emoji.
+  - Nu inventa un subiect care nu e acolo. Dacă fragmentele sunt despre muncă,
+    spune despre ce anume.
+
+Fragmentele:
+
+${sample}`
+    }],
+    { temperature: 0.4, maxOutputTokens: 300 }
+  );
+
+  return {
+    // Models like to answer a naming request with a sentence about the name.
+    name: text.replace(/^["'“”]+|["'“”.]+$/g, '').split('\n')[0].trim().slice(0, 80),
+    usage,
+    model
+  };
+}
