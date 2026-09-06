@@ -72,3 +72,35 @@ test('a call that returns nothing is refunded', () => {
     'an empty answer must refund: otherwise a topic that never answers can '
     + 'drain a daily budget one attempt at a time');
 });
+
+/**
+ * The first version of this prompt produced verdicts on the person, not
+ * readings of the material. On a topic about a marriage it wrote that they were
+ * gathering evidence against their wife and trying to buy her goodwill --
+ * delivered to them, about them, from their own private notes.
+ *
+ * Two instructions caused it: "write what circles around them and has not been
+ * said" is the analyst's move, and "or the contradiction between two of them"
+ * asks outright for a gotcha. These pin the correction.
+ */
+test('the extension prompt writes about the material, not the person', () => {
+  const gemini = readFileSync(new URL('../server/gemini.js', import.meta.url), 'utf8');
+  const prompt = gemini.slice(gemini.indexOf('export async function extend'));
+
+  assert.ok(/Scrii despre fragmente, nu despre omul care le-a scris/.test(prompt),
+    'the prompt must say outright that it writes about the fragments, not the writer');
+  assert.ok(/Nu ești terapeut/.test(prompt),
+    'it must refuse the diagnosing register explicitly');
+  assert.ok(/Nu cauți contradicții/.test(prompt),
+    'asking for contradictions is asking for a gotcha, and it produced one');
+  assert.ok(!/contradicția dintre două dintre ele/.test(prompt),
+    'the clause that invited the gotcha must be gone');
+});
+
+test('a reading takes one angle, chosen per call', () => {
+  const gemini = readFileSync(new URL('../server/gemini.js', import.meta.url), 'utf8');
+  assert.ok(/EXTENSION_ANGLES/.test(gemini), 'the angles are a list');
+  assert.ok(/Math\.random\(\) \* EXTENSION_ANGLES\.length/.test(gemini),
+    'one is chosen per call: offered as a list in the prompt, the model worked '
+    + 'through them all in order and every reading came out the same shape');
+});

@@ -348,7 +348,26 @@ ${sample}`
  * what you already wrote is worse than being told nothing. So the ask is for
  * the thing the scraps are circling and have not said.
  */
+/**
+ * The angles an extension can take, one per call.
+ *
+ * Offered as a list in the prompt, the model worked through all of them in
+ * order and every reading came out with the same shape -- "X repeats... what
+ * is missing is... it remains unclear whether". A response you can predict
+ * stops being worth reading, which is the same reason echo picks its shape at
+ * random rather than by rule.
+ */
+const EXTENSION_ANGLES = [
+  `Ce se repetă de la un fragment la altul și cum se schimbă pe drum.`,
+  `Ce lipsește dintre lucrurile pe care te-ai fi așteptat să le găsești aici.`,
+  `Un detaliu mic dintr-un singur fragment, care arată altfel lângă celelalte.`,
+  `O întrebare la care fragmentele astea nu răspund.`,
+  `Cum se schimbă felul de a scrie de la primele fragmente la ultimele.`,
+  `Ce fel de lucru e ăsta, de fapt, judecând numai după ce e scris aici.`
+];
+
 export async function extend(topicName, bodies) {
+  const angle = EXTENSION_ANGLES[Math.floor(Math.random() * EXTENSION_ANGLES.length)];
   const sample = bodies
     .slice(0, 20)
     .map((b) => `- ${String(b).replace(/\s+/g, ' ').slice(0, 400)}`)
@@ -357,26 +376,38 @@ export async function extend(topicName, bodies) {
   const { text, usage, model } = await call(
     [{
       text: `Ești Magpie: o coțofană care adună ce e interesant din ce arunci
-spre ea. Seacă, piezișă, deloc entuziastă. Nu ești antrenor și nu suni ca unul.
+spre ea. Curioasă, seacă, deloc entuziastă.
 
 Scrii în română, cu "tu".
 
 Fragmentele de mai jos sunt scrise de aceeași persoană, în timp, și par să fie
 despre același lucru: "${topicName}".
 
-Scrie ce se învârte în jurul lor și nu s-a spus încă. Lucrul care leagă
-fragmentele fără să apară în niciunul. Sau contradicția dintre două dintre ele,
-dacă e una.
+Scrie despre ce e acolo, dintr-un singur unghi:
+
+  ${angle}
+
+Ăsta e unghiul. Nu le atingi pe toate celelalte pe rând.
+
+Scrii despre fragmente, nu despre omul care le-a scris. Asta e regula
+principală și e ușor de încălcat fără să bagi de seamă.
 
 Reguli pe care nu le încalci:
+  - Nu spui ce fel de om e, ce evită, ce urmărește de fapt, ce nu recunoaște
+    sau ce se ascunde în spatele a ce a scris. Nu ești terapeut și nu ai fost
+    întrebată.
+  - Nu cauți contradicții și nu i le arăți. Dacă două fragmente se bat cap în
+    cap, e viața lui, nu o greșeală de prins.
   - Nu rezuma. Știe ce a scris.
   - Două-cinci propoziții. Un singur paragraf. Scrii mereu ceva: chiar dacă
     fragmentele nu se leagă între ele, spui asta într-o propoziție. Un răspuns
     gol nu e o opțiune.
   - Nu inventa un fir care nu e acolo.
-  - Fără sfaturi, fără pași următori, fără productivitate, obiective sau felul
-    în care gândește.
+  - Fără sfaturi, fără pași următori, fără productivitate sau obiective.
   - Fără laude, fără emoji, fără semne de exclamare.
+
+Dacă fragmentele sunt despre oameni apropiați sau despre ceva greu, rămâi la
+ce e scris. Nu comentezi relația și nu împarți dreptate.
 
 Fragmentele:
 
