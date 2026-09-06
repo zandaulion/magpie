@@ -234,3 +234,59 @@ Dacă nu se vede niciun text lizibil, returnează un șir gol.` }
 
   return { text: text.replace(/^["'“”]+|["'“”]+$/g, '').trim(), usage, model };
 }
+
+/**
+ * The vector behind a scrap.
+ *
+ * A different endpoint and a different model from the three above: embedding
+ * is not generation, it costs a small fraction of a generation call, and it is
+ * deliberately outside the daily budget. Rationing it would ration the thing
+ * the app is for -- connections between scraps are computed locally against
+ * these vectors, with no model call at all.
+ *
+ * RETRIEVAL_DOCUMENT rather than the default, because every scrap is stored to
+ * be found later by another scrap; asking for the symmetric task puts the
+ * whole pile in one space where near really does mean near.
+ */
+const EMBED_MODEL = (process.env.GEMINI_EMBED_MODEL || 'gemini-embedding-001').trim();
+
+export const embedModel = () => EMBED_MODEL;
+
+export async function embed(text) {
+  const key = getKey();
+  if (!key) throw new ModelError('not_configured', 'Nu e configurat niciun model.', 503);
+
+  const trimmed = String(text || '').trim();
+  if (!trimmed) throw new ModelError('empty', 'Nimic de reprezentat.', 400);
+
+  let res;
+  try {
+    res = await fetch(`${ENDPOINT_BASE}${EMBED_MODEL}:embedContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+      // Bounded: a very long scrap would otherwise be truncated by the service
+      // at a point we do not choose. 8k characters is far more than any scrap
+      // seen so far and well inside the model's input limit.
+      body: JSON.stringify({
+        model: `models/${EMBED_MODEL}`,
+        content: { parts: [{ text: trimmed.slice(0, 8000) }] },
+        taskType: 'RETRIEVAL_DOCUMENT'
+      })
+    });
+  } catch (err) {
+    throw new ModelError('unreachable', 'Nu am putut ajunge la model.', 502);
+  }
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new ModelError('upstream', `Modelul a răspuns ${res.status}. ${detail.slice(0, 200)}`,
+                         res.status === 429 ? 429 : 502);
+  }
+
+  const json = await res.json();
+  const values = json?.embedding?.values;
+  if (!Array.isArray(values) || !values.length) {
+    throw new ModelError('unreadable', 'Răspuns fără vector.', 502);
+  }
+  return values;
+}

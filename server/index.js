@@ -15,6 +15,9 @@ import { swVersion } from './serve-sw.js';
 import { echo, collide, transcribe, look, readImageText, isConfigured, ModelError } from './gemini.js';
 import { charge, refund, BudgetError } from './budget.js';
 import {
+  rememberScrap, backfillEmbeddings, neighboursOf, nearestPair, coverage
+} from './vectors.js';
+import {
   COOKIE_NAME, requireDevice, requireAdmin, setTokenCookie,
   createInvite, listInvites, revokeInvite, redeemInvite,
   createLinkCode, redeemLinkCode, redeemRecovery, resetRecovery,
@@ -187,6 +190,12 @@ app.post('/api/scraps', requireDevice, (req, res) => {
   `).run(id, req.device.account_id, req.device.id, body, imageId, audioId, now);
 
   res.status(201).json(scrapForApi(db.prepare('SELECT * FROM scraps WHERE id = ?').get(id)));
+
+  // After the response, deliberately. The vector is what makes a scrap findable
+  // later, but nothing about saving it should wait on a network call -- and a
+  // model outage must never turn into a failure to keep what someone wrote.
+  // Anything missed here is picked up by the backfill.
+  if (body) rememberScrap(id, body);
 });
 
 /**
@@ -376,17 +385,69 @@ app.post('/api/scraps/:id/echo', requireDevice, asyncRoute(async (req, res) => {
 }));
 
 /**
+ * What else you have written that is close to this one.
+ *
+ * No model call. The vectors were paid for when each scrap was saved, and this
+ * is cosine similarity over them -- which is what makes it cheap enough to
+ * offer on every scrap rather than behind a button with a budget attached.
+ *
+ * `days` pushes aside the neighbours from the same sitting. The scrap written
+ * twenty minutes ago you already remember; the one from five weeks back is the
+ * return visit this app was built for.
+ */
+app.get('/api/scraps/:id/near', requireDevice, (req, res) => {
+  const scrap = db.prepare('SELECT id FROM scraps WHERE id = ? AND account_id = ?')
+    .get(req.params.id, req.device.account_id);
+  if (!scrap) return res.status(404).json({ error: 'not_found' });
+
+  const days = Number(req.query.days);
+  const near = neighboursOf(req.device.account_id, req.params.id, {
+    limit: Math.min(Number(req.query.limit) || 5, 20),
+    minAgeDays: Number.isFinite(days) ? days : 0
+  });
+
+  res.json({ near, coverage: coverage(req.device.account_id) });
+});
+
+/**
+ * Give the pile its vectors.
+ *
+ * Idempotent, and safe to call repeatedly: it only looks at scraps that have
+ * text and no vector. Needed once for everything written before embedding
+ * existed, and useful afterwards for anything a model outage missed.
+ */
+app.post('/api/embeddings/backfill', requireDevice, asyncRoute(async (req, res) => {
+  if (!isConfigured()) {
+    return res.status(503).json({ error: 'not_configured', message: 'Nu e configurat niciun model.' });
+  }
+  // Deliberately not charged against the daily budget: embedding is the
+  // substrate, and rationing it would ration the thing the app is for.
+  const result = await backfillEmbeddings(req.device.account_id);
+  res.json({ ...result, coverage: coverage(req.device.account_id) });
+}));
+
+/**
  * Two scraps, knocked together.
  *
  * Wants a pair and nothing more, which is why it is here so early: clustering
  * needs dozens before it can say anything honest, and this needs two.
  */
 app.post('/api/collide', requireDevice, asyncRoute(async (req, res) => {
-  const pool = db.prepare(`
-    SELECT id, body FROM scraps
-    WHERE account_id = ? AND body != ''
-    ORDER BY RANDOM() LIMIT 2
-  `).all(req.device.account_id);
+  // The closest pair that is not from the same sitting, where the vectors can
+  // find one. Two scraps drawn at random are usually unrelated, and asking a
+  // model what connects them makes it invent a link; asking it about a pair
+  // that is already near each other asks it to describe a real one.
+  //
+  // Falls back to random, because a pile with no vectors yet -- a model
+  // outage, a brand new account -- should still be able to collide.
+  const near = nearestPair(req.device.account_id);
+  const pool = near
+    ? [near.first, near.second]
+    : db.prepare(`
+        SELECT id, body FROM scraps
+        WHERE account_id = ? AND body != ''
+        ORDER BY RANDOM() LIMIT 2
+      `).all(req.device.account_id);
 
   if (pool.length < 2) {
     return res.status(400).json({
