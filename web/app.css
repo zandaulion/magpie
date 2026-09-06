@@ -720,14 +720,23 @@ p.scrap-near.is-waiting { font-style: italic; }
 
 .topic-name { margin: 0; font-size: 1rem; font-weight: 700; }
 
+/* The count is the way in: a topic's four preview lines are cut to one line
+   each, which recognises a topic without letting you read it. */
 .topic-size {
   flex: none;
-  padding: 1px 8px;
+  padding: 3px 11px;
+  border: 0;
   border-radius: 999px;
   background: var(--line);
+  color: var(--ink);
+  font: inherit;
   font-size: 0.74rem;
   font-weight: 700;
+  cursor: pointer;
 }
+
+.topic-size:hover { background: var(--surface-2); }
+.topic-size[aria-expanded="true"] { background: var(--sheen); color: var(--ground); }
 
 /* A few of its scraps, so the name can be judged against what is under it. */
 .topic-scraps {
@@ -780,7 +789,7 @@ p.scrap-near.is-waiting { font-style: italic; }
 
 /* Distinguished, not separated. Two columns would make the page about
    provenance; no difference at all would lose it. */
-.ext.is-mine { border-left-color: var(--accent, currentColor); }
+.ext.is-mine { border-left-color: var(--gold); }
 
 .ext-body { margin: 0 0 8px; font-size: 0.86rem; line-height: 1.6; white-space: pre-wrap; }
 
@@ -793,4 +802,48 @@ p.scrap-near.is-waiting { font-style: italic; }
   color: var(--ink-2);
 }
 
-.ext.is-mine .ext-who { color: var(--accent, var(--ink)); }
+.ext.is-mine .ext-who { color: var(--gold); }
+
+/* Opened: the scraps in full, wrapped rather than clipped. */
+.topic-full {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.topic-full li {
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: rgba(127, 127, 127, 0.07);
+}
+
+.topic-full p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  /* The whole point of opening it. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.topic-full img {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-bottom: 7px;
+}
+
+.topic-full audio { width: 100%; margin-top: 7px; }
+
+.topic-full-when {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}

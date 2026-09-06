@@ -287,8 +287,11 @@ export function topicScraps(accountId, topicId, { limit = 30 } = {}) {
     .get(topicId, accountId);
   if (!owned) return null;
 
+  // The media columns come along: a scrap that is a photograph is still a
+  // scrap, and opening a topic to find its picture missing would be a worse
+  // list than the truncated one it replaced.
   const scraps = db.prepare(`
-    SELECT s.id, s.body, s.created_at, st.score
+    SELECT s.id, s.body, s.created_at, s.image_id, s.audio_id, st.score
     FROM scrap_topics st JOIN scraps s ON s.id = st.scrap_id
     WHERE st.topic_id = ?
     ORDER BY st.score DESC

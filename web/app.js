@@ -721,11 +721,13 @@ function paintTopics(topics, minSize = 3) {
     <section class="topic" data-topic="${esc(t.id)}">
       <header class="topic-head">
         <h3 class="topic-name">${esc(t.name)}</h3>
-        <span class="topic-size">${t.size}</span>
+        <button type="button" class="topic-size" data-open-topic="${esc(t.id)}"
+                aria-expanded="false" aria-label="Vezi toate cele ${t.size}">${t.size}</button>
       </header>
-      <ul class="topic-scraps">
+      <ul class="topic-scraps" data-preview-for="${esc(t.id)}">
         ${t.scraps.map((s) => `<li>${esc((s.body || '').slice(0, 90))}</li>`).join('')}
       </ul>
+      <div class="topic-all" data-all-for="${esc(t.id)}" hidden></div>
       <div class="topic-acts">
         <button type="button" class="link-btn" data-rename="${esc(t.id)}">Redenumește</button>
         ${t.namedByUser
@@ -773,7 +775,48 @@ async function loadExtensions(topicId) {
   } catch { /* the topic itself is still readable without them */ }
 }
 
+/**
+ * Every scrap in a topic, in full.
+ *
+ * The four lines in the card are a preview and are cut to a single line each,
+ * which is enough to recognise a topic and not enough to read one. This is the
+ * way in: fetched when asked for, since most topics are never opened.
+ */
+async function toggleTopicScraps(topicId, button) {
+  const host = document.querySelector(`[data-all-for="${topicId}"]`);
+  const preview = document.querySelector(`[data-preview-for="${topicId}"]`);
+  if (!host) return;
+
+  if (!host.hidden) {
+    host.hidden = true;
+    preview.hidden = false;
+    button.setAttribute('aria-expanded', 'false');
+    return;
+  }
+
+  host.hidden = false;
+  preview.hidden = true;
+  button.setAttribute('aria-expanded', 'true');
+  host.innerHTML = '<p class="topics-empty">se deschide…</p>';
+
+  try {
+    const { scraps } = await api(`/api/topics/${topicId}/scraps`);
+    host.innerHTML = `<ul class="topic-full">${scraps.map((s) => `
+      <li>
+        ${s.imageId ? `<img src="/api/images/${encodeURIComponent(s.imageId)}" alt="" loading="lazy">` : ''}
+        ${s.body ? `<p>${esc(s.body)}</p>` : ''}
+        ${s.audioId ? `<audio controls preload="none" src="/api/audio/${encodeURIComponent(s.audioId)}"></audio>` : ''}
+        <span class="topic-full-when">${esc(when(s.createdAt))}</span>
+      </li>`).join('')}</ul>`;
+  } catch {
+    host.innerHTML = '<p class="topics-empty">Nu am putut deschide tema.</p>';
+  }
+}
+
 $('topics-list').addEventListener('click', async (ev) => {
+  const open = ev.target.closest('[data-open-topic]');
+  if (open) return toggleTopicScraps(open.dataset.openTopic, open);
+
   const extend = ev.target.closest('[data-extend]');
   if (extend) {
     extend.disabled = true;

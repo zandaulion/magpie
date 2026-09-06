@@ -500,6 +500,25 @@ app.post('/api/topics/:id/name', requireDevice, asyncRoute(async (req, res) => {
   res.json({ id: req.params.id, name: name || topic.name, namedByUser: false });
 }));
 
+/**
+ * Everything in a topic, not the handful the list previews.
+ *
+ * Its own route rather than a bigger payload on /api/topics: most topics are
+ * never opened, and sending every scrap of every one of them to draw four
+ * truncated lines each would be most of the pile on every visit.
+ */
+app.get('/api/topics/:id/scraps', requireDevice, (req, res) => {
+  const topic = topicScraps(req.device.account_id, req.params.id, { limit: 200 });
+  if (!topic) return res.status(404).json({ error: 'not_found' });
+  res.json({
+    name: topic.name,
+    scraps: topic.scraps.map((s) => ({
+      id: s.id, body: s.body, createdAt: s.created_at, score: s.score,
+      imageId: s.image_id, audioId: s.audio_id
+    }))
+  });
+});
+
 /** What has been written about a topic, Magpie's and yours alike. */
 app.get('/api/topics/:id/extensions', requireDevice, (req, res) => {
   const list = listExtensions(req.device.account_id, req.params.id);
