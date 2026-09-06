@@ -676,11 +676,27 @@ p.scrap-near.is-waiting { font-style: italic; }
 #topics-sheet { place-items: start center; overflow-y: auto; }
 #topics-sheet .sheet-inner { width: 100%; max-width: 520px; }
 
+/*
+ * Pinned, because this sheet scrolls and the header does not get to leave with
+ * the content. With four topics on a phone the list overflows immediately, and
+ * the close button was scrolling off the top: measured at a 560px viewport it
+ * sat 193px above the visible area, so tapping where it had been hit nothing
+ * and the sheet could only be dismissed with the back gesture.
+ *
+ * The negative margins and padding bleed the bar to the edges of the panel, so
+ * scrolled content passes behind it rather than beside it.
+ */
 .sheet-head {
+  position: sticky;
+  top: -24px;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  margin: -24px -24px 0;
+  padding: 24px 24px 12px;
+  background: var(--ground);
 }
 
 .sheet-lead { margin: 2px 0 16px; font-size: 0.86rem; }
