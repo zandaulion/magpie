@@ -21,7 +21,8 @@ import {
   rememberScrap, backfillEmbeddings, neighboursOf, nearestPair, coverage
 } from './vectors.js';
 import {
-  reconcileTopics, listTopics, topicScraps, renameTopic, applySuggestedName, MIN_TOPIC_SIZE
+  reconcileTopics, listTopics, topicScraps, renameTopic, applySuggestedName,
+  scrapsSinceGrouping, MIN_TOPIC_SIZE
 } from './topics.js';
 import {
   listExtensions, addExtension, editExtension, deleteExtension
@@ -446,6 +447,7 @@ app.get('/api/topics', requireDevice, (req, res) => {
   res.json({
     topics: listTopics(req.device.account_id),
     minSize: MIN_TOPIC_SIZE,
+    sinceGrouping: scrapsSinceGrouping(req.device.account_id),
     coverage: coverage(req.device.account_id)
   });
 });
@@ -459,7 +461,11 @@ app.get('/api/topics', requireDevice, (req, res) => {
  */
 app.post('/api/topics/recluster', requireDevice, (req, res) => {
   const summary = reconcileTopics(req.device.account_id);
-  res.json({ ...summary, topics: listTopics(req.device.account_id) });
+  res.json({
+    ...summary,
+    topics: listTopics(req.device.account_id),
+    sinceGrouping: scrapsSinceGrouping(req.device.account_id)
+  });
 });
 
 /** A name the person typed. */

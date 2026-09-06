@@ -92,8 +92,14 @@
       <button id="topics-close" class="icon-btn" type="button" aria-label="Închide">&times;</button>
     </header>
     <p class="sheet-lead">Ce revine în ce ai aruncat. Numele îl poți schimba oricând.</p>
+    <!-- At the top, where it is found. At the bottom it sat below every topic
+         and every reading, which on a pile of any size is a long scroll away
+         from the question it answers. -->
+    <button id="topics-recluster" class="regroup" type="button">
+      <span id="regroup-label">Grupează din nou</span>
+      <span id="regroup-since" class="regroup-since" hidden></span>
+    </button>
     <div id="topics-list" class="topics"></div>
-    <button id="topics-recluster" class="ghost wide" type="button">Caută din nou</button>
   </div>
 </div>
 

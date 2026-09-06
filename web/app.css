@@ -847,3 +847,37 @@ p.scrap-near.is-waiting { font-style: italic; }
   text-transform: uppercase;
   color: var(--ink-2);
 }
+
+/* The regroup control, at the top where the question is asked. */
+.regroup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 16px;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.regroup:hover { background: var(--surface-2); }
+.regroup[disabled] { opacity: 0.6; cursor: default; }
+
+/* Shown only when regrouping would have something new to work with. */
+.regroup-since {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--sheen);
+  color: var(--ground);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.regroup-since[hidden] { display: none; }
