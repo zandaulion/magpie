@@ -59,8 +59,25 @@ body {
   color: var(--ink);
   font: 400 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
-  padding-bottom: max(24px, env(safe-area-inset-bottom));
 }
+
+/*
+ * The shell is exactly the viewport, and nothing is allowed to make the page
+ * taller than it.
+ *
+ * body used to carry padding-bottom for the gesture bar. #app is 100dvh, so
+ * that padding sat underneath a full-height shell and made the document taller
+ * than the screen by the height of the inset. The page could then be scrolled
+ * by that much -- and because the header lives inside #app rather than being
+ * fixed, scrolling took it up underneath the status bar and left it there.
+ * Easy to do by accident on the way out of a sheet, when a finger is already
+ * on the glass and the stream is not under it.
+ *
+ * The inset now belongs to the two things that actually touch the bottom edge:
+ * the composer, and the gate. This rule is the guard rather than the fix --
+ * if something later overflows again, it cannot drag the header out of sight.
+ */
+body:has(> #app:not([hidden])) { overflow: hidden; }
 
 [hidden] { display: none !important; }
 
@@ -98,7 +115,12 @@ button { font: inherit; cursor: pointer; border: 0; }
 
 /* ------------------------------------------------------------------ gate */
 
-.gate { min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
+/* The gate can outgrow the screen on a short phone with the keyboard up, so
+   it scrolls -- and is the one place that still wants the bottom inset. */
+.gate {
+  min-height: 100dvh; display: grid; place-items: center;
+  padding: 24px 24px max(24px, env(safe-area-inset-bottom));
+}
 .gate-inner { width: 100%; max-width: 380px; }
 .gate-mark { display: block; margin-bottom: 18px; }
 .gate h1 { font-size: 2rem; letter-spacing: -.02em; }
