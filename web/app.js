@@ -578,8 +578,12 @@ function taskSlot(s) {
   const done = Boolean(s.task.doneAt);
   const overdue = !done && s.task.dueOn && s.task.dueOn < localToday();
 
+  // The chip carries its own way off. Not every platform's date picker offers
+  // a clear, and a date you cannot remove is worse than one you never set.
   const due = s.task.dueOn
-    ? `<span class="task-due${overdue ? ' is-late' : ''}">${esc(dueLabel(s.task.dueOn))}</span>`
+    ? `<span class="task-due${overdue ? ' is-late' : ''}">${esc(dueLabel(s.task.dueOn))}<button
+         class="due-off" type="button" data-dueoff="${esc(s.id)}"
+         aria-label="Scoate data">&times;</button></span>`
     : '';
 
   return `<div class="task-strip${done ? ' is-done' : ''}">
@@ -669,6 +673,9 @@ $('scraps').addEventListener('click', async (ev) => {
 
   const tick = ev.target.closest('[data-tick]')?.dataset.tick;
   if (tick) return tickTask(tick);
+
+  const dueOff = ev.target.closest('[data-dueoff]')?.dataset.dueoff;
+  if (dueOff) return setDue(dueOff, null);
 
   const when = ev.target.closest('[data-when]')?.dataset.when;
   if (when) return askDue(when);
@@ -799,11 +806,15 @@ async function toggleTask(scrapId) {
       patchTask(scrapId, null);
       setTaskBadge(openTasks);
     } else {
+      // No dueOn at all: that is what lets the server read "mâine" out of the
+      // sentence. Sending null here would mean "no date", and would throw away
+      // one the person had already typed.
       const { task, openTasks } = await api(`/api/scraps/${scrapId}/task`, {
-        method: 'PUT', body: JSON.stringify({})
+        method: 'PUT', body: JSON.stringify({ today: localToday() })
       });
       patchTask(scrapId, task);
       setTaskBadge(openTasks);
+      if (task.dueOn) toast(`Am citit „${dueLabel(task.dueOn)}” din text.`);
     }
   } catch (err) {
     toast(err.message);
@@ -825,23 +836,42 @@ async function tickTask(scrapId) {
 }
 
 /**
- * Ask for a date.
+ * Ask for a date, with the platform's own picker.
  *
- * A prompt rather than a date picker, for now: the picker is the right answer
- * and this is the honest placeholder. Empty clears the date and leaves the
- * task open, which is the difference between "not scheduled" and "not a task".
+ * One hidden input serves the whole stream: a date field per card would be one
+ * per scrap on a pile of any size, all of them invisible and all of them
+ * listening. showPicker() opens it where it is supported; the fallback is a
+ * plain click, which is what older Safari does with a focused date input
+ * anyway.
  */
-async function askDue(scrapId) {
-  const s = state.scraps.find((x) => x.id === scrapId);
-  const current = s?.task?.dueOn || '';
-  const typed = prompt('Când? (aaaa-ll-zz, gol ca să scoți data)', current);
-  if (typed === null) return;
+let dueFor = null;
 
+function askDue(scrapId) {
+  const s = state.scraps.find((x) => x.id === scrapId);
+  const picker = $('due-picker');
+  dueFor = scrapId;
+  picker.value = s?.task?.dueOn || '';
+  try {
+    picker.showPicker();
+  } catch {
+    picker.focus();
+    picker.click();
+  }
+}
+
+$('due-picker').addEventListener('change', async (ev) => {
+  const scrapId = dueFor;
+  if (!scrapId) return;
+  dueFor = null;
+  await setDue(scrapId, ev.target.value || null);
+});
+
+/** null takes the date off and leaves the task open -- not the same as unmarking. */
+async function setDue(scrapId, dueOn) {
   try {
     const { task, openTasks } = await api(`/api/scraps/${scrapId}/task`, {
-      method: 'PUT', body: JSON.stringify({ dueOn: typed.trim() || null })
+      method: 'PUT', body: JSON.stringify({ dueOn, today: localToday() })
     });
-    if (typed.trim() && !task.dueOn) toast('N-am înțeles data.');
     patchTask(scrapId, task);
     setTaskBadge(openTasks);
   } catch (err) {

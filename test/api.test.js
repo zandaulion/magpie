@@ -586,3 +586,50 @@ test('deleting a scrap takes its task with it', async () => {
   const { open } = await (await api('/api/tasks', { headers: auth })).json();
   assert.equal(open.length, 0, 'no task pointing at a scrap that is gone');
 });
+
+test('marking reads a date the sentence already contains', async () => {
+  const { auth } = await registerDevice('task-reads');
+  const id = await seedScrap(auth, 'baterie pentru Luca mâine dimineața');
+
+  const r = await (await api(`/api/scraps/${id}/task`, {
+    method: 'PUT', headers: auth, body: JSON.stringify({ today: '2026-09-08' })
+  })).json();
+  assert.equal(r.task.dueOn, '2026-09-09', 'typed once should be enough');
+});
+
+test('an explicit date is never replaced by one read from the body', async () => {
+  const { auth } = await registerDevice('task-explicit');
+  const id = await seedScrap(auth, 'ceva mâine');
+
+  const r = await (await api(`/api/scraps/${id}/task`, {
+    method: 'PUT', headers: auth, body: JSON.stringify({ dueOn: '2026-12-01', today: '2026-09-08' })
+  })).json();
+  assert.equal(r.task.dueOn, '2026-12-01', 'what was asked for wins over what was read');
+});
+
+test('sending null clears the date rather than re-reading the sentence', async () => {
+  // The distinction the route exists to preserve: absent means "I have not
+  // said", null means "take it off". Collapsing them would make the date
+  // impossible to remove from a scrap that mentions one.
+  const { auth } = await registerDevice('task-clear');
+  const id = await seedScrap(auth, 'ceva mâine');
+
+  await api(`/api/scraps/${id}/task`, {
+    method: 'PUT', headers: auth, body: JSON.stringify({ today: '2026-09-08' })
+  });
+  const r = await (await api(`/api/scraps/${id}/task`, {
+    method: 'PUT', headers: auth, body: JSON.stringify({ dueOn: null, today: '2026-09-08' })
+  })).json();
+  assert.equal(r.task.dueOn, null, 'the date comes off and stays off');
+});
+
+test('an ordinary note is marked without a date', async () => {
+  const { auth } = await registerDevice('task-nodate');
+  const id = await seedScrap(auth, 'Baterie externă pentru Luca');
+
+  const r = await (await api(`/api/scraps/${id}/task`, {
+    method: 'PUT', headers: auth, body: JSON.stringify({ today: '2026-09-08' })
+  })).json();
+  assert.equal(r.task.dueOn, null, 'no date invented where none was written');
+  assert.equal(r.openTasks, 1, 'still a task');
+});

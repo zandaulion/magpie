@@ -19,6 +19,7 @@
  */
 
 import { db, nowIso } from './db.js';
+import { findDate } from './dates.js';
 
 /** A date the client sent, or null. Anything else is treated as absent. */
 export function cleanDue(value) {
@@ -33,7 +34,7 @@ export function cleanDue(value) {
 }
 
 const ownScrap = (accountId, scrapId) =>
-  db.prepare('SELECT id FROM scraps WHERE id = ? AND account_id = ?').get(scrapId, accountId);
+  db.prepare('SELECT id, body FROM scraps WHERE id = ? AND account_id = ?').get(scrapId, accountId);
 
 /**
  * Make a scrap a task, or change the date on one that already is.
@@ -41,11 +42,20 @@ const ownScrap = (accountId, scrapId) =>
  * Upsert rather than insert, so a second tap sets a date instead of failing,
  * and so re-marking something never disturbs `created_at` or quietly reopens
  * something already ticked off.
+ *
+ * Leaving `dueOn` out entirely is different from sending null. Out means "I
+ * have not said", and the sentence is read for a date it may already contain
+ * -- "mâine dimineața" should not have to be typed twice. Null means "take the
+ * date off", and is obeyed. An explicit date is never quietly replaced by one
+ * read out of the body, however confident the reading.
  */
-export function markTask(accountId, scrapId, dueOn) {
-  if (!ownScrap(accountId, scrapId)) return null;
+export function markTask(accountId, scrapId, { dueOn, today } = {}) {
+  const scrap = ownScrap(accountId, scrapId);
+  if (!scrap) return null;
 
-  const due = cleanDue(dueOn);
+  const due = dueOn === undefined
+    ? findDate(scrap.body, today)
+    : cleanDue(dueOn);
   db.prepare(`
     INSERT INTO tasks (scrap_id, due_on, done_at, created_at)
     VALUES (?, ?, NULL, ?)

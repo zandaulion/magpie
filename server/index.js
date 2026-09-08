@@ -417,7 +417,13 @@ app.get('/api/tasks', requireDevice, (req, res) => {
  * whether the mark already existed.
  */
 app.put('/api/scraps/:id/task', requireDevice, (req, res) => {
-  const task = markTask(req.device.account_id, req.params.id, req.body?.dueOn);
+  // Key absent means "read the sentence"; key present, even as null, is
+  // obeyed. Passing req.body?.dueOn straight through would collapse the two.
+  const body = req.body || {};
+  const task = markTask(req.device.account_id, req.params.id, {
+    ...('dueOn' in body ? { dueOn: body.dueOn } : {}),
+    today: body.today
+  });
   if (!task) return res.status(404).json({ error: 'not_found' });
   res.json({ task, openTasks: openTaskCount(req.device.account_id) });
 });
