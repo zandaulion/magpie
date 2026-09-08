@@ -12,6 +12,9 @@ import { fileURLToPath } from 'node:url';
 
 import { db, nowIso, IMAGE_DIR, AUDIO_DIR } from './db.js';
 import { purgeableCounts, purgeScraps, SCOPES } from './purge.js';
+import {
+  markTask, setDone, unmarkTask, taskOf, listTasks, openTaskCount
+} from './tasks.js';
 import { swVersion } from './serve-sw.js';
 import {
   echo, collide, transcribe, look, readImageText, nameTopic, extend,
@@ -111,7 +114,10 @@ app.get('/api/me', requireDevice, (req, res) => {
     deviceId: req.device.id,
     label: req.device.label,
     devices: listDevices(req.device.account_id),
-    autoEcho: autoEchoFor(req.device.account_id)
+    autoEcho: autoEchoFor(req.device.account_id),
+    // For the badge, which has to be right before the sheet is ever opened.
+    // The stream is paginated, so counting the loaded cards would undercount.
+    openTasks: openTaskCount(req.device.account_id)
   });
 });
 
@@ -389,9 +395,56 @@ function scrapForApi(row) {
     createdAt: row.created_at,
     // Magpie's words, kept separate from theirs all the way to the client so
     // the interface can never render the two as one thing.
-    echo: said?.body || null
+    echo: said?.body || null,
+    // Null unless the scrap was made a task by hand. Rides along so a card can
+    // show its own state without the stream asking once per scrap.
+    task: taskOf(row.id)
   };
 }
+
+// ---------------------------------------------------------------- de făcut
+
+/** Everything marked, open first. */
+app.get('/api/tasks', requireDevice, (req, res) => {
+  res.json(listTasks(req.device.account_id));
+});
+
+/**
+ * Make this scrap a task, or move its date.
+ *
+ * A PUT rather than a POST because it is the same request either way: the
+ * client sends what the task should now look like, and does not have to know
+ * whether the mark already existed.
+ */
+app.put('/api/scraps/:id/task', requireDevice, (req, res) => {
+  const task = markTask(req.device.account_id, req.params.id, req.body?.dueOn);
+  if (!task) return res.status(404).json({ error: 'not_found' });
+  res.json({ task, openTasks: openTaskCount(req.device.account_id) });
+});
+
+/** Tick it off, or put it back. */
+app.patch('/api/scraps/:id/task', requireDevice, (req, res) => {
+  if (typeof req.body?.done !== 'boolean') {
+    return res.status(400).json({ error: 'bad_request', message: 'done trebuie să fie true sau false.' });
+  }
+  const task = setDone(req.device.account_id, req.params.id, req.body.done);
+  if (!task) return res.status(404).json({ error: 'not_found' });
+  res.json({ task, openTasks: openTaskCount(req.device.account_id) });
+});
+
+/**
+ * It was not a task after all.
+ *
+ * Takes the mark off and leaves the scrap untouched -- which is why this is a
+ * different route from deleting the scrap, and why it is safe to offer beside
+ * it.
+ */
+app.delete('/api/scraps/:id/task', requireDevice, (req, res) => {
+  if (!unmarkTask(req.device.account_id, req.params.id)) {
+    return res.status(404).json({ error: 'not_found' });
+  }
+  res.json({ ok: true, openTasks: openTaskCount(req.device.account_id) });
+});
 
 // ------------------------------------------------------------ magpie says
 

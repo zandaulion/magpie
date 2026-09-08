@@ -462,3 +462,127 @@ test('purging says when it has left too little to work with', async () => {
   assert.equal(r.belowCorpus, true,
     'an app that has gone quiet looks broken rather than emptied');
 });
+
+// ------------------------------------------------------------------ tasks
+
+test('a scrap is saved without ever being asked what it is', async () => {
+  // The whole reason tasks live in their own table: capture stays a body and
+  // nothing else, and a four-word note with no verb in it still gets typed.
+  const { auth } = await registerDevice('task-capture');
+  const res = await api('/api/scraps', {
+    method: 'POST', headers: auth, body: JSON.stringify({ body: 'Baterie externă pentru Luca' })
+  });
+  assert.equal(res.status, 201);
+  const { task } = await (await api('/api/scraps', { headers: auth })).json()
+    .then((d) => d.scraps[0]);
+  assert.equal(task, null, 'nothing is a task until someone says so');
+});
+
+test('marking, dating and ticking off a scrap never touches its body', async () => {
+  const { auth } = await registerDevice('task-life');
+  const id = await seedScrap(auth, 'Baterie externă pentru Luca');
+
+  let r = await (await api(`/api/scraps/${id}/task`, {
+    method: 'PUT', headers: auth, body: JSON.stringify({})
+  })).json();
+  assert.equal(r.task.dueOn, null, 'a task with no date is still a task');
+  assert.equal(r.openTasks, 1);
+
+  r = await (await api(`/api/scraps/${id}/task`, {
+    method: 'PUT', headers: auth, body: JSON.stringify({ dueOn: '2026-09-20' })
+  })).json();
+  assert.equal(r.task.dueOn, '2026-09-20', 'a second mark moves the date rather than failing');
+
+  r = await (await api(`/api/scraps/${id}/task`, {
+    method: 'PATCH', headers: auth, body: JSON.stringify({ done: true })
+  })).json();
+  assert.ok(r.task.doneAt, 'done is when, not whether');
+  assert.equal(r.openTasks, 0);
+
+  r = await (await api(`/api/scraps/${id}/task`, {
+    method: 'PATCH', headers: auth, body: JSON.stringify({ done: false })
+  })).json();
+  assert.equal(r.task.doneAt, null, 'ticking off is undoable');
+
+  const { scraps } = await (await api('/api/scraps', { headers: auth })).json();
+  assert.equal(scraps[0].body, 'Baterie externă pentru Luca', 'the words are untouched throughout');
+});
+
+test('unmarking removes the task and keeps the scrap', async () => {
+  const { auth } = await registerDevice('task-unmark');
+  const id = await seedScrap(auth, 'nu era de făcut');
+  await api(`/api/scraps/${id}/task`, { method: 'PUT', headers: auth, body: '{}' });
+
+  const res = await api(`/api/scraps/${id}/task`, { method: 'DELETE', headers: auth });
+  assert.equal(res.status, 200);
+
+  const { scraps } = await (await api('/api/scraps', { headers: auth })).json();
+  assert.equal(scraps.length, 1, 'the scrap survives losing its mark');
+  assert.equal(scraps[0].task, null);
+});
+
+test('open tasks sort by date, then by how long they have been sitting', async () => {
+  const { auth } = await registerDevice('task-order');
+  const late = await seedScrap(auth, 'dated later');
+  const soon = await seedScrap(auth, 'dated sooner');
+  const oldUndated = await seedScrap(auth, 'undated, old', 10);
+  const newUndated = await seedScrap(auth, 'undated, new');
+
+  await api(`/api/scraps/${late}/task`, { method: 'PUT', headers: auth, body: JSON.stringify({ dueOn: '2026-12-01' }) });
+  await api(`/api/scraps/${soon}/task`, { method: 'PUT', headers: auth, body: JSON.stringify({ dueOn: '2026-09-10' }) });
+  await api(`/api/scraps/${oldUndated}/task`, { method: 'PUT', headers: auth, body: '{}' });
+  await api(`/api/scraps/${newUndated}/task`, { method: 'PUT', headers: auth, body: '{}' });
+
+  const { open } = await (await api('/api/tasks', { headers: auth })).json();
+  assert.deepEqual(open.map((t) => t.body),
+    ['dated sooner', 'dated later', 'undated, old', 'undated, new'],
+    'dated first by date; then the ones most likely to have been forgotten');
+});
+
+test('a date that never happened is not stored', async () => {
+  const { auth } = await registerDevice('task-baddate');
+  const id = await seedScrap(auth, 'when?');
+
+  for (const dueOn of ['2026-02-31', 'tomorrow', '20-09-2026', '2026-9-1', 12345]) {
+    const r = await (await api(`/api/scraps/${id}/task`, {
+      method: 'PUT', headers: auth, body: JSON.stringify({ dueOn })
+    })).json();
+    assert.equal(r.task.dueOn, null, `refused: ${dueOn}`);
+  }
+});
+
+test('done tasks stay, newest first, so a mistaken tick can be undone', async () => {
+  const { auth } = await registerDevice('task-done');
+  const a = await seedScrap(auth, 'first done');
+  const b = await seedScrap(auth, 'second done');
+  for (const id of [a, b]) {
+    await api(`/api/scraps/${id}/task`, { method: 'PUT', headers: auth, body: '{}' });
+    await api(`/api/scraps/${id}/task`, { method: 'PATCH', headers: auth, body: JSON.stringify({ done: true }) });
+  }
+  const { open, done } = await (await api('/api/tasks', { headers: auth })).json();
+  assert.equal(open.length, 0);
+  assert.deepEqual(done.map((t) => t.body), ['second done', 'first done']);
+});
+
+test('one account cannot mark or read another account\'s tasks', async () => {
+  const mine = await registerDevice('task-mine');
+  const theirs = await registerDevice('task-theirs');
+  const id = await seedScrap(theirs.auth, 'theirs');
+
+  assert.equal((await api(`/api/scraps/${id}/task`, {
+    method: 'PUT', headers: mine.auth, body: '{}'
+  })).status, 404);
+
+  const { open } = await (await api('/api/tasks', { headers: mine.auth })).json();
+  assert.equal(open.length, 0);
+});
+
+test('deleting a scrap takes its task with it', async () => {
+  const { auth } = await registerDevice('task-cascade');
+  const id = await seedScrap(auth, 'going away');
+  await api(`/api/scraps/${id}/task`, { method: 'PUT', headers: auth, body: '{}' });
+
+  await api(`/api/scraps/${id}`, { method: 'DELETE', headers: auth });
+  const { open } = await (await api('/api/tasks', { headers: auth })).json();
+  assert.equal(open.length, 0, 'no task pointing at a scrap that is gone');
+});
