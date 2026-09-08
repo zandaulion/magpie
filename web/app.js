@@ -544,6 +544,57 @@ function when(iso) {
  * it is the whole of how she is asked.
  */
 /** The near ones, once they have been asked for. */
+/** Today, where the person is standing. Overdue is decided here for that reason. */
+const localToday = () => {
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+};
+
+/** A date said the way it would be said out loud. */
+function dueLabel(dueOn) {
+  const today = localToday();
+  if (dueOn === today) return 'azi';
+
+  const t = new Date(`${today}T00:00:00Z`);
+  const d = new Date(`${dueOn}T00:00:00Z`);
+  const days = Math.round((d - t) / 86400000);
+  if (days === 1) return 'mâine';
+  if (days === -1) return 'ieri';
+  if (days < 0) return `acum ${-days} zile`;
+  if (days <= 6) return d.toLocaleDateString('ro-RO', { weekday: 'long' });
+  return d.toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' });
+}
+
+/**
+ * The task strip under a scrap, when it has one.
+ *
+ * Only drawn for scraps someone marked, so an unmarked pile looks exactly as
+ * it did before this existed. Nothing about the body changes when a scrap
+ * becomes a task -- no strikethrough, no fading -- because that would be the
+ * app restyling the person's own words to say something about them.
+ */
+function taskSlot(s) {
+  if (!s.task) return '';
+  const done = Boolean(s.task.doneAt);
+  const overdue = !done && s.task.dueOn && s.task.dueOn < localToday();
+
+  const due = s.task.dueOn
+    ? `<span class="task-due${overdue ? ' is-late' : ''}">${esc(dueLabel(s.task.dueOn))}</span>`
+    : '';
+
+  return `<div class="task-strip${done ? ' is-done' : ''}">
+    <button class="task-tick" type="button" data-tick="${esc(s.id)}"
+            aria-pressed="${done}" aria-label="${done ? 'Pune-l înapoi' : 'Gata'}">
+      <span class="tick-box" aria-hidden="true"></span>
+      <span class="tick-text">${done ? 'gata' : 'de făcut'}</span>
+    </button>
+    ${due}
+    <button class="task-when" type="button" data-when="${esc(s.id)}">
+      ${s.task.dueOn ? 'schimbă data' : 'pune o dată'}
+    </button>
+  </div>`;
+}
+
 function nearSlot(s) {
   if (state.pendingNear.has(s.id)) return '<p class="scrap-near is-waiting">caută…</p>';
   if (!Array.isArray(s.near)) return '';
@@ -579,8 +630,13 @@ function renderScraps({ toBottom = false } = {}) {
       ${s.audioId ? `<audio class="scrap-audio" controls preload="none" src="/api/audio/${encodeURIComponent(s.audioId)}"></audio>` : ''}
       ${echoSlot(s)}
       ${nearSlot(s)}
+      ${taskSlot(s)}
       <div class="scrap-meta">
         <span>${esc(when(s.createdAt))}</span>
+        <button class="scrap-task-btn${s.task ? ' is-on' : ''}" type="button"
+                data-task="${esc(s.id)}"
+                aria-pressed="${s.task ? 'true' : 'false'}"
+                aria-label="${s.task ? 'Nu mai e de făcut' : 'Marchează de făcut'}">De făcut</button>
         <button class="scrap-near-btn" type="button" data-near="${esc(s.id)}"
                 aria-label="Ce seamănă cu asta">Ce seamănă?</button>
         <button class="scrap-del" type="button" data-del="${esc(s.id)}" aria-label="Șterge fragmentul">&times;</button>
@@ -608,6 +664,15 @@ function scrollToBottom(smooth = false) {
 }
 
 $('scraps').addEventListener('click', async (ev) => {
+  const mark = ev.target.closest('[data-task]')?.dataset.task;
+  if (mark) return toggleTask(mark);
+
+  const tick = ev.target.closest('[data-tick]')?.dataset.tick;
+  if (tick) return tickTask(tick);
+
+  const when = ev.target.closest('[data-when]')?.dataset.when;
+  if (when) return askDue(when);
+
   const ask = ev.target.closest('[data-ask]');
   if (ask) {
     // Swapped in place rather than through a re-render: rewriting the list
@@ -708,6 +773,145 @@ function paintRegroup(since) {
     ? '1 fragment nou'
     : `${since} fragmente noi`;
 }
+
+// ---------------------------------------------------------------- de făcut
+
+/** Keeps one scrap's task state in the local list and repaints just the stream. */
+function patchTask(scrapId, task) {
+  const s = state.scraps.find((x) => x.id === scrapId);
+  if (s) s.task = task;
+  renderScraps();
+}
+
+function setTaskBadge(n) {
+  const badge = $('tasks-badge');
+  if (!badge) return;
+  badge.textContent = n > 99 ? '99+' : String(n);
+  badge.hidden = !n;
+}
+
+/** Mark it, or take the mark off. Never touches the scrap itself. */
+async function toggleTask(scrapId) {
+  const s = state.scraps.find((x) => x.id === scrapId);
+  try {
+    if (s?.task) {
+      const { openTasks } = await api(`/api/scraps/${scrapId}/task`, { method: 'DELETE' });
+      patchTask(scrapId, null);
+      setTaskBadge(openTasks);
+    } else {
+      const { task, openTasks } = await api(`/api/scraps/${scrapId}/task`, {
+        method: 'PUT', body: JSON.stringify({})
+      });
+      patchTask(scrapId, task);
+      setTaskBadge(openTasks);
+    }
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+async function tickTask(scrapId) {
+  const s = state.scraps.find((x) => x.id === scrapId);
+  if (!s?.task) return;
+  try {
+    const { task, openTasks } = await api(`/api/scraps/${scrapId}/task`, {
+      method: 'PATCH', body: JSON.stringify({ done: !s.task.doneAt })
+    });
+    patchTask(scrapId, task);
+    setTaskBadge(openTasks);
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+/**
+ * Ask for a date.
+ *
+ * A prompt rather than a date picker, for now: the picker is the right answer
+ * and this is the honest placeholder. Empty clears the date and leaves the
+ * task open, which is the difference between "not scheduled" and "not a task".
+ */
+async function askDue(scrapId) {
+  const s = state.scraps.find((x) => x.id === scrapId);
+  const current = s?.task?.dueOn || '';
+  const typed = prompt('Când? (aaaa-ll-zz, gol ca să scoți data)', current);
+  if (typed === null) return;
+
+  try {
+    const { task, openTasks } = await api(`/api/scraps/${scrapId}/task`, {
+      method: 'PUT', body: JSON.stringify({ dueOn: typed.trim() || null })
+    });
+    if (typed.trim() && !task.dueOn) toast('N-am înțeles data.');
+    patchTask(scrapId, task);
+    setTaskBadge(openTasks);
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+function taskRow(t) {
+  const done = Boolean(t.doneAt);
+  const overdue = !done && t.dueOn && t.dueOn < localToday();
+  const what = t.body || (t.hasImage ? 'o poză' : t.hasAudio ? 'o înregistrare' : 'fără text');
+
+  return `<li class="task${done ? ' is-done' : ''}">
+    <button class="task-tick" type="button" data-tick="${esc(t.scrapId)}"
+            aria-pressed="${done}" aria-label="${done ? 'Pune-l înapoi' : 'Gata'}">
+      <span class="tick-box" aria-hidden="true"></span>
+    </button>
+    <span class="task-body">${esc(what)}</span>
+    ${t.dueOn ? `<span class="task-due${overdue ? ' is-late' : ''}">${esc(dueLabel(t.dueOn))}</span>` : ''}
+  </li>`;
+}
+
+async function renderTasks() {
+  const list = $('tasks-list');
+  list.innerHTML = '<p class="tasks-empty">se uită…</p>';
+  try {
+    const { open, done } = await api('/api/tasks');
+    setTaskBadge(open.length);
+
+    if (!open.length && !done.length) {
+      list.innerHTML = `<p class="tasks-empty">Nimic însemnat încă.<br>
+        Pe orice fragment, apasă „De făcut”.</p>`;
+      return;
+    }
+
+    // Done ones stay, below and quieter. Nothing in Magpie disappears because
+    // it is finished, and a tick put on by accident has to be reachable.
+    list.innerHTML = `
+      ${open.length ? `<ul class="task-list">${open.map(taskRow).join('')}</ul>`
+                    : '<p class="tasks-empty">Nimic deschis.</p>'}
+      ${done.length ? `<p class="task-sep">gata</p>
+                       <ul class="task-list is-done-list">${done.map(taskRow).join('')}</ul>` : ''}`;
+  } catch {
+    list.innerHTML = '<p class="tasks-empty">Nu am putut încărca lista.</p>';
+  }
+}
+
+$('tasks-list').addEventListener('click', async (ev) => {
+  const id = ev.target.closest('[data-tick]')?.dataset.tick;
+  if (!id) return;
+  const row = ev.target.closest('.task');
+  const done = row?.classList.contains('is-done');
+  try {
+    const { task, openTasks } = await api(`/api/scraps/${id}/task`, {
+      method: 'PATCH', body: JSON.stringify({ done: !done })
+    });
+    patchTask(id, task);
+    setTaskBadge(openTasks);
+    await renderTasks();
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+$('open-tasks').addEventListener('click', () => {
+  $('tasks-sheet').hidden = false;
+  openScreen('tasks', () => { $('tasks-sheet').hidden = true; });
+  renderTasks();
+});
+$('tasks-close').addEventListener('click', () => dismissScreen('tasks'));
 
 async function renderTopics() {
   $('topics-list').innerHTML = '<p class="topics-empty">se uită…</p>';
@@ -1207,6 +1411,7 @@ $('gate-code').addEventListener('keydown', (ev) => {
     state.me = me;
     state.autoEcho = me.autoEcho !== false;
     $('auto-echo').checked = state.autoEcho;
+    setTaskBadge(me.openTasks || 0);
     $('app').hidden = false;
     await loadScraps();
   } catch {

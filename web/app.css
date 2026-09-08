@@ -916,3 +916,93 @@ p.scrap-near.is-waiting { font-style: italic; }
   background: color-mix(in srgb, var(--danger) 16%, transparent);
 }
 .danger:disabled .purge-n { background: var(--surface-2); }
+
+/* -------------------------------------------------------------- de făcut */
+
+.has-badge { position: relative; }
+.badge {
+  position: absolute; top: 3px; right: 3px;
+  min-width: 17px; height: 17px; padding: 0 4px;
+  border-radius: 99px; background: var(--sheen); color: #fff;
+  font-size: .66rem; font-weight: 700; line-height: 17px; text-align: center;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--ground);
+}
+
+/* The mark on a card. Quiet until it is on: an unmarked pile has to look
+   exactly as it did before any of this existed. */
+.scrap-task-btn {
+  background: none; color: var(--ink-3);
+  font-size: .76rem; padding: 2px 7px; border-radius: 99px;
+  border: 1px solid transparent;
+}
+.scrap-task-btn:hover { color: var(--ink-2); }
+.scrap-task-btn.is-on {
+  color: var(--sheen);
+  border-color: color-mix(in srgb, var(--sheen) 40%, transparent);
+  background: color-mix(in srgb, var(--sheen) 10%, transparent);
+}
+
+.task-strip {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 8px; padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
+
+.task-tick {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: none; color: var(--ink-2); font-size: .8rem; padding: 0;
+}
+.tick-box {
+  width: 17px; height: 17px; border-radius: 5px; flex: 0 0 17px;
+  border: 1.6px solid color-mix(in srgb, var(--sheen) 55%, var(--line));
+  display: inline-grid; place-items: center;
+  transition: background .15s, border-color .15s;
+}
+.task-tick[aria-pressed="true"] .tick-box {
+  background: var(--sheen); border-color: var(--sheen);
+}
+.task-tick[aria-pressed="true"] .tick-box::after {
+  content: ""; width: 9px; height: 5px;
+  border-left: 2px solid #fff; border-bottom: 2px solid #fff;
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+
+/* The date, and the fact of it being past. Never applied to the body: the
+   words are the person's and are not restyled to comment on them. */
+.task-due {
+  font-size: .74rem; color: var(--ink-3);
+  padding: 2px 8px; border-radius: 99px; background: var(--surface-2);
+}
+.task-due.is-late { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+
+.task-when {
+  background: none; color: var(--ink-3); font-size: .74rem;
+  margin-left: auto; text-decoration: underline; text-underline-offset: 2px;
+}
+.task-when:hover { color: var(--ink-2); }
+
+.task-strip.is-done .tick-text { color: var(--ink-3); }
+
+/* The sheet */
+
+.tasks { display: grid; gap: 4px; }
+.tasks-empty { color: var(--ink-3); font-size: .9rem; text-align: center; padding: 22px 4px; line-height: 1.6; }
+.task-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+
+.task {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px 12px;
+}
+/* min-width:0 or a long scrap pushes the date off the row. */
+.task-body {
+  flex: 1; min-width: 0; font-size: .9rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.task.is-done { opacity: .58; }
+
+.task-sep {
+  margin: 16px 0 6px; font-size: .72rem; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--ink-3);
+}

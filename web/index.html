@@ -53,6 +53,14 @@
     <img class="mark" src="/icons/icon.svg" alt="" width="28" height="28">
     <h1>Magpie</h1>
     <span id="scrap-count" class="count" aria-label="fragmente"></span>
+    <button id="open-tasks" class="icon-btn has-badge" type="button" aria-label="De făcut">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+           stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 7.2 6 9.2 9.6 5.4"/><path d="M4 16.4 6 18.4 9.6 14.6"/>
+        <path d="M13.2 7.4H20M13.2 16.6H20"/>
+      </svg>
+      <span id="tasks-badge" class="badge" hidden></span>
+    </button>
     <button id="open-topics" class="icon-btn" type="button" aria-label="Teme">
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
            stroke-width="1.8" stroke-linecap="round">
@@ -82,10 +90,23 @@
     <ul id="scraps" class="scraps"></ul>
   </div>
 
+  <!-- De făcut: the scraps that turned out to be things to do. Marked by hand,
+     never by Magpie -- the pile holds the mark, it does not hand out homework. -->
+  <div id="tasks-sheet" class="sheet" hidden>
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2>De făcut</h2>
+      <button id="tasks-close" class="icon-btn" type="button" aria-label="Închide">&times;</button>
+    </header>
+    <p class="sheet-lead">Fragmentele pe care le-ai însemnat. Magpie nu însemnează nimic singură.</p>
+    <div id="tasks-list" class="tasks"></div>
+  </div>
+</div>
+
   <!-- Teme: what the pile keeps coming back to. A sheet rather than a second
      screen, because it is somewhere you visit and leave, not somewhere you
      work. -->
-<div id="topics-sheet" class="sheet" hidden>
+  <div id="topics-sheet" class="sheet" hidden>
   <div class="sheet-inner">
     <header class="sheet-head">
       <h2>Teme</h2>

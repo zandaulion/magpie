@@ -220,6 +220,32 @@ function addColumnIfMissing(table, column, decl) {
   return true;
 }
 
+db.exec(`
+  -- A scrap that turned out to be something to do.
+  --
+  -- Beside the scrap rather than inside it, like everything else derived from
+  -- one. Two reasons, and the first is the schema's: the body is immutable, so
+  -- becoming a task cannot be a column on it. The second is the app's: capture
+  -- must not ask what a thing is. "Baterie externă pentru Luca" is four words
+  -- with no verb in it, and a composer that first wanted to know whether that
+  -- was a note or a task is a composer people stop typing into.
+  --
+  -- So nothing here is set when a scrap is saved. A task is something a scrap
+  -- becomes afterwards, by hand, and the row simply does not exist until then.
+  CREATE TABLE IF NOT EXISTS tasks (
+    scrap_id    TEXT PRIMARY KEY REFERENCES scraps(id) ON DELETE CASCADE,
+    -- A local calendar date, or null for "sometime". Not a timestamp: nothing
+    -- here fires at a moment, and an hour-precise field would promise a
+    -- punctuality the app cannot deliver.
+    due_on      TEXT,
+    -- Null while it is still open. Set rather than deleted, so ticking
+    -- something off is undoable and the record of having done it survives.
+    done_at     TEXT,
+    created_at  TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_tasks_open ON tasks(done_at, due_on);
+`);
+
 // A recording, where there is one. The body then holds the transcript, which
 // is a reading of the audio rather than the thing itself.
 addColumnIfMissing('scraps', 'audio_id', 'TEXT');
