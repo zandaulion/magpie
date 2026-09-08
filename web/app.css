@@ -1006,3 +1006,17 @@ p.scrap-near.is-waiting { font-style: italic; }
   margin: 16px 0 6px; font-size: .72rem; letter-spacing: .09em;
   text-transform: uppercase; color: var(--ink-3);
 }
+
+/* Off-screen rather than display:none -- a hidden input cannot be focused, and
+   showPicker() on Safari needs something the page will actually give focus to. */
+.due-picker {
+  position: fixed; bottom: 0; left: 0;
+  width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0;
+}
+
+.task-due { display: inline-flex; align-items: center; gap: 5px; }
+.due-off {
+  background: none; color: inherit; opacity: .55;
+  font-size: .9rem; line-height: 1; padding: 0 1px;
+}
+.due-off:hover { opacity: 1; }
