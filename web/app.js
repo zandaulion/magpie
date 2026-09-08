@@ -970,6 +970,7 @@ async function renderStats() {
   try {
     const tz = -new Date().getTimezoneOffset();
     const s = await api(`/api/stats?tz=${tz}`);
+    renderPurge(s.purgeable);
 
     if (!s.total) {
       box.innerHTML = '<p class="hint">Încă nimic de numărat.</p>';
@@ -1042,6 +1043,82 @@ $('new-recovery').addEventListener('click', async () => {
     showRecovery(recoveryCode);
   } catch (err) {
     toast(err.message);
+  }
+});
+
+// ------------------------------------------------------------------ golire
+
+const PURGE_LABEL = {
+  day: 'Ce am pus azi',
+  week: 'Ultima săptămână',
+  all: 'Tot'
+};
+
+/**
+ * The buttons carry their own count, and go dead at zero.
+ *
+ * A number on the button is the whole safety story here: nobody can be asked
+ * to confirm a delete whose size they have to guess at, and "ultima săptămână"
+ * means nothing until it says nineteen.
+ */
+function renderPurge(counts) {
+  const box = $('purge');
+  if (!box) return;
+
+  for (const btn of box.querySelectorAll('[data-purge]')) {
+    const scope = btn.dataset.purge;
+    const n = Number(counts?.[scope]) || 0;
+    btn.disabled = n === 0;
+    btn.innerHTML = `${esc(PURGE_LABEL[scope])}<span class="purge-n">${n}</span>`;
+  }
+}
+
+/** Ș and Ț are awkward on a phone keyboard, so the typed word takes either. */
+const plainUpper = (s) => String(s || '').trim().toUpperCase()
+  .replace(/Ș/g, 'S').replace(/Ț/g, 'T');
+
+$('purge').addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('[data-purge]');
+  if (!btn || btn.disabled) return;
+
+  const scope = btn.dataset.purge;
+  const n = Number(btn.querySelector('.purge-n')?.textContent) || 0;
+  const what = n === 1 ? 'un fragment' : `${n} fragmente`;
+
+  // "Tot" is the one that cannot be half-regretted, so it asks for a word
+  // rather than a tap. Everything else gets the confirm used everywhere else.
+  if (scope === 'all') {
+    const typed = prompt(`Ștergi tot — ${what}, pozele, înregistrările și temele.\n\nScrie STERG ca să confirmi.`);
+    if (plainUpper(typed) !== 'STERG') return;
+  } else if (!confirm(`Ștergi ${what}? Nu se mai pot recupera.`)) {
+    return;
+  }
+
+  for (const b of $('purge').querySelectorAll('[data-purge]')) b.disabled = true;
+  try {
+    const r = await api('/api/scraps/purge', {
+      method: 'POST',
+      body: JSON.stringify({ scope, tz: -new Date().getTimezoneOffset() })
+    });
+
+    const said = [r.deleted === 1 ? 'Un fragment șters' : `${r.deleted} fragmente șterse`];
+    if (r.topicsEmptied) {
+      said.push(r.topicsEmptied === 1 ? 'o temă a rămas goală' : `${r.topicsEmptied} teme au rămas goale`);
+    }
+    // Not a failure, but the reason the app is about to look emptier than the
+    // number suggests: below the corpus floor nothing is compared any more.
+    if (r.belowCorpus) said.push('prea puține ca să mai caute legături');
+    toast(`${said.join(', ')}.`);
+
+    // The list and the topics both read from what was just deleted, so they
+    // are refetched rather than patched: after a bulk delete there is no
+    // sensible local edit, only a smaller pile.
+    await loadScraps();
+    if (!$('topics-sheet').hidden) await renderTopics();
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    await renderStats();
   }
 });
 

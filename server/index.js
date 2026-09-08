@@ -11,6 +11,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import { db, nowIso, IMAGE_DIR, AUDIO_DIR } from './db.js';
+import { purgeableCounts, purgeScraps, SCOPES } from './purge.js';
 import { swVersion } from './serve-sw.js';
 import {
   echo, collide, transcribe, look, readImageText, nameTopic, extend,
@@ -18,7 +19,7 @@ import {
 } from './gemini.js';
 import { charge, refund, BudgetError } from './budget.js';
 import {
-  rememberScrap, backfillEmbeddings, neighboursOf, nearestPair, coverage
+  rememberScrap, backfillEmbeddings, neighboursOf, nearestPair, coverage, MIN_CORPUS
 } from './vectors.js';
 import {
   reconcileTopics, listTopics, topicScraps, renameTopic, applySuggestedName,
@@ -237,7 +238,8 @@ app.get('/api/stats', requireDevice, (req, res) => {
   if (!total) {
     return res.json({ total: 0, kinds: { text: 0, photo: 0, voice: 0 },
                       byDay: [], byHour: new Array(24).fill(0),
-                      echoes: 0, collisions: 0, firstAt: null, days: 0, busiest: null });
+                      echoes: 0, collisions: 0, firstAt: null, days: 0, busiest: null,
+                      purgeable: { day: 0, week: 0, all: 0 } });
   }
 
   // A scrap can be more than one thing at once -- a photograph with a line
@@ -286,7 +288,10 @@ app.get('/api/stats', requireDevice, (req, res) => {
     days: counted.length,
     echoes: one(`SELECT COUNT(*) AS n FROM echoes e
                  JOIN scraps s ON s.id = e.scrap_id WHERE s.account_id = ?`).n,
-    collisions: one('SELECT COUNT(*) AS n FROM collisions WHERE account_id = ?').n
+    collisions: one('SELECT COUNT(*) AS n FROM collisions WHERE account_id = ?').n,
+    // Rides along rather than taking a request of its own: settings already
+    // asks for this, with the timezone the windows are measured in.
+    purgeable: purgeableCounts(account, tz)
   });
 });
 
@@ -323,6 +328,43 @@ app.delete('/api/scraps/:id', requireDevice, (req, res) => {
     try { fs.unlinkSync(path.join(AUDIO_DIR, row.audio_id)); } catch {}
   }
   res.json({ ok: true });
+});
+
+/**
+ * Throw away a window of scraps at once.
+ *
+ * The counts that label the buttons come from /api/stats, so the window is
+ * measured the same way in both places -- a button that says four and deletes
+ * nine would be worse than no button.
+ *
+ * Files are unlinked after the rows are gone rather than before. Each failure
+ * is swallowed on purpose: a picture that cannot be removed leaves a file
+ * nothing points at, which is invisible, and is not a reason to report that a
+ * delete the database has already committed did not happen.
+ */
+app.post('/api/scraps/purge', requireDevice, (req, res) => {
+  const scope = String(req.body?.scope || '');
+  if (!SCOPES.includes(scope)) return res.status(400).json({ error: 'bad_scope' });
+
+  const result = purgeScraps(req.device.account_id, { scope, tz: req.body?.tz });
+  if (!result) return res.status(400).json({ error: 'bad_scope' });
+
+  for (const name of result.images) {
+    try { fs.unlinkSync(path.join(IMAGE_DIR, name)); } catch {}
+  }
+  for (const name of result.audio) {
+    try { fs.unlinkSync(path.join(AUDIO_DIR, name)); } catch {}
+  }
+
+  res.json({
+    deleted: result.deleted,
+    remaining: result.remaining,
+    topicsEmptied: result.topicsEmptied,
+    // Below this there is no corpus to compare against, so connections and
+    // topics stop appearing. Said plainly here, because an app that has gone
+    // quiet looks broken rather than emptied.
+    belowCorpus: result.remaining < MIN_CORPUS
+  });
 });
 
 app.get('/api/images/:id', requireDevice, (req, res) => {

@@ -354,3 +354,111 @@ test('a nonsense timezone cannot bend the query', async () => {
     assert.equal(s.byDay.length, 14, tz);
   }
 });
+
+// ------------------------------------------------------------------ purge
+
+/** Puts a scrap in with a chosen timestamp, which the API deliberately will not. */
+async function seedScrap(auth, body, daysAgo = 0) {
+  const res = await api('/api/scraps', { method: 'POST', headers: auth, body: JSON.stringify({ body }) });
+  const { id } = await res.json();
+  if (daysAgo) {
+    const { db } = await import('../server/db.js');
+    const when = new Date(Date.now() - daysAgo * 86400000).toISOString();
+    db.prepare('UPDATE scraps SET created_at = ? WHERE id = ?').run(when, id);
+  }
+  return id;
+}
+
+test('the counts on the buttons are the windows the delete uses', async () => {
+  const { auth } = await registerDevice('purge-counts');
+  await seedScrap(auth, 'today one');
+  await seedScrap(auth, 'today two');
+  await seedScrap(auth, 'three days back', 3);
+  await seedScrap(auth, 'a month back', 30);
+
+  const s = await (await api('/api/stats?tz=0', { headers: auth })).json();
+  assert.deepEqual(s.purgeable, { day: 2, week: 3, all: 4 },
+    'a button that says four and deletes nine would be worse than no button');
+});
+
+test('a scope only takes its own window', async () => {
+  const { auth } = await registerDevice('purge-window');
+  await seedScrap(auth, 'today');
+  await seedScrap(auth, 'last week', 3);
+  await seedScrap(auth, 'long ago', 30);
+
+  const r = await (await api('/api/scraps/purge', {
+    method: 'POST', headers: auth, body: JSON.stringify({ scope: 'day', tz: 0 })
+  })).json();
+  assert.equal(r.deleted, 1);
+  assert.equal(r.remaining, 2, 'the older two are untouched');
+
+  const left = await (await api('/api/scraps', { headers: auth })).json();
+  assert.deepEqual(left.scraps.map((s) => s.body).sort(), ['last week', 'long ago']);
+});
+
+test('deleting everything means everything, including a scrap dated in the future', async () => {
+  // A device with a wrong clock can file a scrap outside every window. The
+  // button that says everything has to mean everything.
+  const { auth } = await registerDevice('purge-all');
+  await seedScrap(auth, 'now');
+  await seedScrap(auth, 'from the future', -400);
+
+  const r = await (await api('/api/scraps/purge', {
+    method: 'POST', headers: auth, body: JSON.stringify({ scope: 'all', tz: 0 })
+  })).json();
+  assert.equal(r.deleted, 2);
+  assert.equal(r.remaining, 0);
+});
+
+test('one account cannot purge another', async () => {
+  const mine = await registerDevice('purge-mine');
+  const theirs = await registerDevice('purge-theirs');
+  await seedScrap(mine.auth, 'mine');
+  await seedScrap(theirs.auth, 'theirs');
+
+  await api('/api/scraps/purge', {
+    method: 'POST', headers: mine.auth, body: JSON.stringify({ scope: 'all', tz: 0 })
+  });
+
+  const left = await (await api('/api/scraps', { headers: theirs.auth })).json();
+  assert.deepEqual(left.scraps.map((s) => s.body), ['theirs']);
+});
+
+test('a scope it does not recognise deletes nothing', async () => {
+  const { auth } = await registerDevice('purge-bad');
+  await seedScrap(auth, 'keep me');
+
+  for (const scope of ['everything', '', 'DROP', null]) {
+    const res = await api('/api/scraps/purge', {
+      method: 'POST', headers: auth, body: JSON.stringify({ scope, tz: 0 })
+    });
+    assert.equal(res.status, 400, `refused: ${scope}`);
+  }
+  const left = await (await api('/api/scraps', { headers: auth })).json();
+  assert.equal(left.scraps.length, 1);
+});
+
+test('an absurd timezone cannot widen the window', async () => {
+  // tz decides which rows a delete touches, so it is clamped rather than
+  // trusted -- a fortnight of minutes would otherwise reach back a fortnight.
+  const { auth } = await registerDevice('purge-tz');
+  await seedScrap(auth, 'today');
+  await seedScrap(auth, 'five days back', 5);
+
+  const r = await (await api('/api/scraps/purge', {
+    method: 'POST', headers: auth, body: JSON.stringify({ scope: 'day', tz: 20160 })
+  })).json();
+  assert.equal(r.remaining, 1, 'still only the one day');
+});
+
+test('purging says when it has left too little to work with', async () => {
+  const { auth } = await registerDevice('purge-corpus');
+  await seedScrap(auth, 'the only one');
+
+  const r = await (await api('/api/scraps/purge', {
+    method: 'POST', headers: auth, body: JSON.stringify({ scope: 'all', tz: 0 })
+  })).json();
+  assert.equal(r.belowCorpus, true,
+    'an app that has gone quiet looks broken rather than emptied');
+});
