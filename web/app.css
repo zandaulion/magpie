@@ -881,3 +881,38 @@ p.scrap-near.is-waiting { font-style: italic; }
 }
 
 .regroup-since[hidden] { display: none; }
+
+/* ---------------------------------------------------------------- golire */
+
+.purge { display: grid; gap: 8px; }
+
+/* Outlined rather than filled. Three solid red bars at the foot of settings
+   read as an alarm about the state of the app, when they are only the way out
+   of a pile you no longer want. The colour arrives on the border and the
+   count, and fills in only under the finger. */
+.danger {
+  background: var(--surface);
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--line));
+  padding: 11px 16px; border-radius: 12px; font-weight: 500;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  transition: background .15s, border-color .15s, opacity .15s;
+}
+.danger:hover { border-color: var(--danger); }
+.danger:active { background: color-mix(in srgb, var(--danger) 14%, var(--surface)); }
+.danger:disabled {
+  color: var(--ink-3);
+  border-color: var(--line);
+  opacity: .55;
+  cursor: default;
+}
+
+/* The number is the safety story, so it is set to be read, not decoration. */
+.purge-n {
+  font-variant-numeric: tabular-nums;
+  font-size: .84rem;
+  min-width: 2ch; text-align: right;
+  padding: 2px 9px; border-radius: 99px;
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+}
+.danger:disabled .purge-n { background: var(--surface-2); }
