@@ -13,10 +13,14 @@ what a person sees is translated.
 
 ## What is here
 
-Capture and read back, and the account machinery around it. Scraps are stored
-exactly as written, newest first, and can be deleted. That is the whole of it
-so far, and it is deliberately useful on its own: a plain heap you can add to
-and search by eye is better than an empty clever thing.
+A self-hosted capture app with account/device invitations, text, photographs and
+voice notes. Original scraps remain separate from model-generated responses.
+The current implementation also includes embeddings, related scraps, topic
+grouping/naming and editable topic expansions. AI features require a configured
+provider; basic capture remains useful without one.
+
+[Project overview](https://zandaulion.com/magpie.html) · [Run locally](#running-it)
+· [Configuration](#configuration) · [Security](SECURITY.md)
 
 ## What it does now
 
@@ -49,19 +53,17 @@ No streaks. No reminders asking where you have been. No count that implies a
 target. A missed week should cost nothing, because an app that can make you
 feel behind is one you stop opening.
 
-## What is not here yet, in order
+## Connections, topics and expansions
 
-1. **Embeddings on save** — cheap, and the substrate for everything after.
-2. **Connections** — "this touches that", computed locally against stored
-   vectors, with no model call.
-3. **Topics** — durable rows, not recomputed clusters, so a name you give one
-   survives the next clustering run. A scrap belongs to several.
-4. **Magpie expands** — a written reading of a topic, in its own table, never
-   mixed into your words. Editing one makes it yours; regenerating then adds a
-   new one beside it rather than overwriting what you touched.
+The server exposes embedding backfill, related-scrap lookup, topic regrouping,
+topic naming, and topic expansions; the UI provides these actions. Topics need
+enough material to form a useful group. A lack of topics in a small collection
+does not mean capture failed. Model availability, account limits and corpus size
+affect which actions can complete.
 
-Topics appear only once there are enough scraps to cluster honestly. Before
-that the app says so rather than inventing categories out of four notes.
+Treat this as a personal experimental application, not an independently audited
+service. Propose future work through Issues instead of treating older design
+ideas as a current release checklist.
 
 ## Rules the code keeps
 
@@ -74,10 +76,68 @@ that the app says so rather than inventing categories out of four notes.
 
 ## Running it
 
-    npm install
-    npm test
-    DATA_DIR=./data npm start
+Use Node.js 24 or newer (`node:sqlite`), npm, and `openssl`. From the repository root:
 
-Deployed as a container behind Caddy, with `ADMIN_TOKEN` and
-`PUBLIC_BASE_URL` from `~/.config/magpie/magpie.env`. Invites and devices are
-managed from the shared `pwa-invite-console`.
+```bash
+npm ci
+npm test
+umask 077
+printf 'ADMIN_TOKEN=%s\nPUBLIC_BASE_URL=http://127.0.0.1:3000\nCOOKIE_INSECURE=1\nDATA_DIR=./data\n' \
+  "$(openssl rand -hex 32)" > .env
+set -a
+. ./.env
+set +a
+npm start
+```
+
+This creates a new ignored `.env`; use an empty checkout and do not overwrite an
+existing deployment’s environment file. In another terminal in the same checkout:
+
+```bash
+set -a
+. ./.env
+set +a
+curl --fail http://127.0.0.1:3000/api/admin/invites \
+  -H "X-Admin-Token: $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  --data '{"label":"Demo device"}'
+```
+
+Open the returned `url` to activate the browser. `COOKIE_INSECURE=1` is for this
+loopback HTTP trial only; remove it for HTTPS deployment. The app listens on
+loopback by default. A production reverse proxy must block public admin routes
+and must not forward a caller-supplied admin header.
+
+## Configuration
+
+| Variable | Purpose |
+| --- | --- |
+| `ADMIN_TOKEN` | Required secret for the private admin API; absent means admin access is denied. |
+| `PUBLIC_BASE_URL` | Exact origin used to construct invitations. |
+| `DATA_DIR` | Database, images and audio; defaults to `./data`. |
+| `HOST`, `PORT` | Listener; defaults to `127.0.0.1:3000`. |
+| `COOKIE_INSECURE` | `1` permits local HTTP; leave unset for secure cookies. |
+| `GEMINI_API_KEY` | Optional provider credential for AI responses, media interpretation and embeddings. |
+| `GEMINI_MODEL`, `GEMINI_EMBED_MODEL` | Optional model overrides; see `server/gemini.js` for current defaults. |
+| `MAGPIE_DAILY_AI_LIMIT` | Daily request budget; see `server/budget.js`. |
+
+Model requests can send selected scrap text, images or audio to the provider.
+Keep the provider key outside Git and review its terms before using personal data.
+Local capture does not require successful model calls.
+
+For deployment, build `deploy/Containerfile` and provide the same environment,
+persistent data volume and HTTPS/private-admin routing. Back up the entire data
+directory with the server stopped, together with the private configuration.
+Databases, recordings, images and recovery codes must not be shared in bug reports.
+
+## License
+
+[GNU GPL v3 or later](LICENSE).
+
+
+## Support and contributions
+
+Use this repository’s Issues for reproducible bugs and focused feature requests. Include the version, relevant runtime/browser, expected behavior and a minimal synthetic example. Remove credentials, personal records, device identifiers and deployment-specific values before sharing logs or screenshots.
+
+Run `npm test` before submitting server changes. Tests use temporary synthetic data; do not point them at a live data directory.
+
+Keep changes focused and update the affected documentation. Security-sensitive reports should follow [SECURITY.md](SECURITY.md).
