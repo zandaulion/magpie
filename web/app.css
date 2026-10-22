@@ -16,7 +16,7 @@
   --line: #2E323C;
   --ink: #F2F4F6;
   --ink-2: #A8AEBA;
-  --ink-3: #6F7684;
+  --ink-3: #8A909B;
   --sheen: #3C9FC4;
   --sheen-2: #7A5BC4;
   --sheen-soft: #1B2A33;
@@ -34,7 +34,7 @@
     --line: #DDE0E7;
     --ink: #14161A;
     --ink-2: #4E5461;
-    --ink-3: #868D9B;
+    --ink-3: #686D78;
     --sheen: #2A7FA6;
     --sheen-2: #6446B0;
     --sheen-soft: #E4EFF4;
@@ -46,7 +46,7 @@
 
 :root[data-theme="light"] {
   --ground: #F4F5F7; --surface: #FFFFFF; --surface-2: #EDEFF3; --line: #DDE0E7;
-  --ink: #14161A; --ink-2: #4E5461; --ink-3: #868D9B;
+  --ink: #14161A; --ink-2: #4E5461; --ink-3: #686D78;
   --sheen: #2A7FA6; --sheen-2: #6446B0; --sheen-soft: #E4EFF4;
   --gold: #B98F1E; --danger: #A0392A; --shadow: 0 10px 30px rgba(20, 22, 26, .12);
 }
@@ -1042,3 +1042,5 @@ p.scrap-near.is-waiting { font-style: italic; }
   font-size: .9rem; line-height: 1; padding: 0 1px;
 }
 .due-off:hover { opacity: 1; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

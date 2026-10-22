@@ -621,7 +621,9 @@ function echoSlot(s) {
 function renderScraps({ toBottom = false } = {}) {
   const list = $('scraps');
   $('empty').hidden = state.scraps.length > 0;
-  $('scrap-count').textContent = state.total ? `${state.total}` : '';
+  const count = $('scrap-count');
+  count.textContent = state.total ? `${state.total}` : '';
+  if (state.total) count.insertAdjacentHTML('beforeend', '<span class="sr-only"> fragmente</span>');
   $('more').hidden = state.scraps.length >= state.total;
 
   // Held newest-first, shown oldest-first: the newest ends up against the
